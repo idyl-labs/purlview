@@ -1,0 +1,11 @@
+[stdout]
+https://k7m2p4qx.purlview.link/
+[stderr]
+[32m✓[0m Sharing [36mlocalhost:3000[0m
+[32m✓[0m Invite sent to ana@example.com
+[33m![0m Invite not sent to raj@example.com [90m— send them the link yourself[0m
+
+
+[90mAccess [0m  Only ana@example.com and raj@example.com
+[90mExpires[0m  in 1h[90m · 3:42 PM[0m
+[90mStop   [0m  Ctrl-C

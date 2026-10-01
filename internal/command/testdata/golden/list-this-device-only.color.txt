@@ -1,0 +1,5 @@
+[stdout]
+[90m  ID        APP                ACCESS                DEVICE       STATUS   EXPIRES[0m
+[32m●[0m [36mk7m2p4qx[0m  localhost:5173 +1  Anyone with the link  this device  [32mSharing[0m  in 43m
+[stderr]
+[33m![0m Showing this device only [90m— couldn't reach Purlview[0m

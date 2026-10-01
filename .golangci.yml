@@ -1,0 +1,92 @@
+version: "2"
+
+# A small, useful set. Add a linter when it finds real problems, not to
+# increase the count.
+linters:
+  default: none
+  enable:
+    - errcheck
+    - errorlint
+    - forbidigo
+    - gosec
+    - govet
+    - ineffassign
+    - misspell
+    - nolintlint
+    - revive
+    - staticcheck
+    - unconvert
+    - unused
+  settings:
+    forbidigo:
+      # In the CLI, package output is the only writer of the process
+      # streams: data on stdout, status on stderr, one colour decision. A
+      # direct print would bypass that contract.
+      forbid:
+        - pattern: ^fmt\.Print(f|ln)?$
+          msg: the process streams belong to internal/output; hand it data to render
+        - pattern: ^os\.Std(out|err)$
+          msg: the process streams belong to internal/output; hand it data to render
+      analyze-types: true
+    errcheck:
+      # Diagnostics written to stderr have no useful failure handling.
+      exclude-functions:
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln
+    misspell:
+      locale: UK
+      # Identifiers and conventions such as NO_COLOR keep their US spelling.
+      ignore-rules:
+        - color
+        - center
+    revive:
+      rules:
+        - name: exported
+        - name: blank-imports
+        - name: context-as-argument
+        - name: error-return
+        - name: error-strings
+        - name: error-naming
+        - name: receiver-naming
+        - name: unexported-return
+        - name: indent-error-flow
+        - name: errorf
+        - name: superfluous-else
+        - name: unreachable-code
+        - name: redefines-builtin-id
+  exclusions:
+    generated: lax
+    rules:
+      # Tests write fixtures with fixed modes and build paths from test names,
+      # and capture the process streams the forbidigo rule protects.
+      - path: _test\.go
+        linters:
+          - gosec
+          - forbidigo
+      # The forbidigo rule guards the CLI's output contract; the SDK and the
+      # installers' test fixtures have no such contract.
+      - path: ^(sdk/|install/)
+        linters:
+          - forbidigo
+      # internal/output is the sanctioned writer; cmd/purlview wires the real
+      # streams into it once; the tools under internal/tools are development
+      # and build-time programs, not CLI commands.
+      - path: ^(internal/output/|cmd/purlview/|internal/tools/)
+        linters:
+          - forbidigo
+      # The documentation generator writes the paths it is given, and its
+      # output is meant to be world-readable.
+      - path: ^internal/tools/
+        linters:
+          - gosec
+        text: "G301|G302|G304|G306|G703"
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/idyl-labs/purlview

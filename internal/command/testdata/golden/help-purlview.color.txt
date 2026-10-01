@@ -1,0 +1,34 @@
+[stdout]
+Share your running app. Improve it together.
+
+Usage:
+  purlview [flags]
+  purlview [command]
+
+Examples:
+  purlview share 3000
+  purlview share 5173 8000
+  purlview share 3000 --to ana@example.com
+
+Share
+  share       Share your running app and print its link
+  list        List your active shares
+  link        Print a share's link
+  stop        Stop a share
+
+Account
+  login       Sign in with an email code
+  logout      Sign out on this device
+  whoami      Show the signed-in account and this device
+  devices     List the devices signed in to your account
+
+System
+  completion  Generate the autocompletion script for the specified shell
+  help        Help about any command
+
+Flags:
+  -h, --help      Show help for purlview.
+  -v, --version   Show the version.
+
+Use "purlview [command] --help" for more information about a command.
+[stderr]

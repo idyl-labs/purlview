@@ -1,0 +1,15 @@
+[stdout]
+Print the link of one of your active shares, by its id from 'purlview list'.
+
+The link is the only thing printed on standard output, so it can be piped
+to the clipboard.
+
+Usage:
+  purlview link <id> [flags]
+
+Examples:
+  purlview link k7m2p4qx
+
+Flags:
+  -h, --help   Show help for link.
+[stderr]

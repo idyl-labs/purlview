@@ -1,0 +1,13 @@
+[stdout]
+[stderr]
+2:44 PM  ● First visitor opened the app
+2:51 PM  ! localhost:3000 stopped responding — visitors see a waiting page
+2:51 PM  ✓ localhost:3000 is responding again
+2:58 PM  ! Connection lost — reconnecting
+2:58 PM  ✓ Reconnected — same link, still expires 3:42 PM
+3:37 PM  ! Expires in 5 minutes
+3:42 PM  Share expired
+3:10 PM  ✓ Stopped — the link no longer works
+3:10 PM  Stopped from another device
+3:10 PM  ✗ This device was signed out — run purlview login
+3:10 PM  ! Stopped here, but Purlview couldn't confirm — the link stops working by 3:42 PM

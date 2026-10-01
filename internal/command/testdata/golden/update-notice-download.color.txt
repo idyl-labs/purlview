@@ -1,0 +1,4 @@
+[stdout]
+[stderr]
+[90mA newer Purlview is available: 0.9.1 (you have 0.9.0)[0m
+[90mUpdate:[0m [34mhttps://github.com/idyl-labs/purlview-releases/releases/latest[0m[90m — updating stops running shares[0m

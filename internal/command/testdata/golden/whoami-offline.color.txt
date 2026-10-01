@@ -1,0 +1,5 @@
+[stdout]
+[90mAccount[0m  sam@example.com
+[90mDevice [0m  macbook
+[90mStatus [0m  [33mSigned in (not checked, offline)[0m
+[stderr]

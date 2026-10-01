@@ -1,0 +1,9 @@
+[stdout]
+https://k7m2p4qx.purlview.link/?token=Zk3vQ9x7Lm2Np5RtYw8AbC
+[stderr]
+[32m✓[0m Sharing [36mlocalhost:3000[0m
+
+
+[90mAccess [0m  Anyone with this link
+[90mExpires[0m  in 1h[90m · 3:42 PM[0m
+[90mStop   [0m  Ctrl-C

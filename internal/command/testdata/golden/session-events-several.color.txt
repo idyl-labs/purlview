@@ -1,0 +1,4 @@
+[stdout]
+[stderr]
+2:51 PM  [33m![0m [36mlocalhost:8000[0m stopped responding [90m— visitors see a waiting page[0m
+2:51 PM  [32m✓[0m [36mlocalhost:8000[0m is responding again

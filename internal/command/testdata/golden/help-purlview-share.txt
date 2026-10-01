@@ -1,0 +1,39 @@
+[stdout]
+Share your running app and print its link.
+
+Name your app by its port (3000), by host and port (localhost:3000,
+192.168.1.20:8080) or by a full address (https://staging.internal/demo). A
+path or query, as in 3000/dashboard?tab=2, is the page the link opens; the
+whole app stays reachable.
+
+Name several apps, separated by spaces (5173 8000), when one calls another:
+the link opens the first app's page, and the others are reachable from it
+as they are on your machine. Their addresses in what your apps send are
+translated for the visitor; --no-rewrite leaves the bodies alone.
+
+The link is the only thing printed on standard output; everything else goes
+to standard error. Anyone with the link can open your app, or only the people
+you name with --to. Ctrl-C stops the share. With --background the command
+returns once the share is running and says how to stop it. Shares last one
+hour at most; --ttl asks for less.
+
+The first share signs you in with an email code when this is a terminal;
+otherwise run 'purlview login' first.
+
+Usage:
+  purlview share <target> [<target>...] [--to <email>]... [--ttl 15m] [--background] [--no-rewrite]
+
+Examples:
+  purlview share 3000
+  purlview share 5173 8000
+  purlview share 3000 --to ana@example.com
+  purlview share 3000/dashboard --background
+  purlview share https://staging.internal/demo --ttl 15m
+
+Flags:
+      --background     Keep sharing after this command returns.
+  -h, --help           Show help for share.
+      --no-rewrite     Leave the app's own addresses in response bodies unchanged.
+      --to email       Let in only this email address; repeat for several. Each address is sent an invite.
+      --ttl duration   How long the share lasts, a duration up to 1h (default 1h); for example 15m.
+[stderr]

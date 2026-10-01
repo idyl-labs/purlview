@@ -1,0 +1,4 @@
+[stdout]
+[stderr]
+A newer Purlview is available: 0.9.1 (you have 0.9.0)
+Update: https://github.com/idyl-labs/purlview-releases/releases/latest — updating stops running shares

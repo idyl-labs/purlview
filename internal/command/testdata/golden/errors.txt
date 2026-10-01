@@ -1,0 +1,42 @@
+[stdout]
+[stderr]
+✗ Nothing is answering at localhost:3000 — start your app, then share again
+✗ Couldn't reach Purlview — check your connection and try again
+✗ Not signed in — run purlview login first
+✗ --ttl 2h is over the 1h limit — use 1h or less
+Run 'purlview share --help' for usage.
+✗ reviewer isn't an email address
+Run 'purlview share --help' for usage.
+✗ 70000 isn't a valid port — ports run from 1 to 65535
+Run 'purlview share --help' for usage.
+✗ localhost needs a port — try purlview share localhost:3000
+Run 'purlview share --help' for usage.
+✗ That address is too long — addresses are up to 256 characters
+Run 'purlview share --help' for usage.
+✗ No share k7m2p4qx in your account — see purlview list
+✗ The share didn't start within 30s — nothing was left running; try again
+Cancelled — nothing was left running
+Cancelled — Purlview couldn't confirm; see purlview list
+✗ Couldn't start Purlview's background process — runtime directory is not writable
+→ purlview daemon status
+✗ Purlview's background process stopped — nothing was left running; try again
+✗ This device was signed out — run purlview login
+✗ Couldn't confirm k7m2p4qx stopped — try again, or see purlview list
+✗ No device laptop in your account — see purlview devices
+✗ share names 11 apps — a share takes 10 at most
+Run 'purlview share --help' for usage.
+✗ localhost:5173 is named twice — list each app once
+Run 'purlview share --help' for usage.
+✗ share needs a port or an address — try purlview share 3000
+Run 'purlview share --help' for usage.
+✗ shar isn't a purlview command
+→ purlview share
+Run 'purlview --help' for usage.
+✗ link takes a share id, not a link — try purlview link k7m2p4qx
+Run 'purlview link --help' for usage.
+✗ Sign-in was not finished — run purlview login again
+✗ You've reached your limit of running shares — stop one with purlview stop, then share again
+✗ You've reached your limit of new shares this hour — try again later
+✗ You've reached a Purlview limit — try again later
+✗ This version of Purlview is no longer supported — update with brew upgrade --cask purlview, then share again
+✗ This version of Purlview is no longer supported — download the latest from https://github.com/idyl-labs/purlview-releases/releases/latest

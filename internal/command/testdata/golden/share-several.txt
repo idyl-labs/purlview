@@ -1,0 +1,10 @@
+[stdout]
+https://k7m2p4qx.purlview.link/?token=Zk3vQ9x7Lm2Np5RtYw8AbC
+[stderr]
+✓ Sharing localhost:5173
+  + localhost:8000
+
+
+Access   Anyone with this link
+Expires  in 1h · 3:42 PM
+Stop     Ctrl-C

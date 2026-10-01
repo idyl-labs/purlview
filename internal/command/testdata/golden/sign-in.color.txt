@@ -1,0 +1,10 @@
+[stdout]
+[stderr]
+
+[90mSign in to[0m Purlview
+
+  [90mEmail:[0m 
+  [90mCode sent. Check your inbox.[0m
+  [90mCode:[0m 
+
+[32m✓[0m Signed in as [36msam@example.com[0m

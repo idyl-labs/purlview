@@ -1,0 +1,6 @@
+[stdout]
+Account  sam@example.com
+Device   macbook
+Status   Signed out from another device
+[stderr]
+→ purlview login

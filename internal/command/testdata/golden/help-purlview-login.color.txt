@@ -1,0 +1,14 @@
+[stdout]
+Sign in with a 6-digit code sent to your email address.
+
+The code is typed as hidden text; spaces and dashes in it are ignored. Type
+resend at the code prompt for a new code. The first sign-in creates your
+account. Ctrl-C cancels. Without a terminal, the email address and the code
+are read as two lines of standard input.
+
+Usage:
+  purlview login [flags]
+
+Flags:
+  -h, --help   Show help for login.
+[stderr]

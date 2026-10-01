@@ -1,0 +1,1 @@
+{"installations":[{"id":"dev_test","label":"test device","created_at":"2026-09-16T12:00:00Z","last_used_at":"2026-09-16T12:00:00Z","active_shares":1,"current":true},{"id":"dev_other","label":"other device","created_at":"2026-09-02T09:30:00Z","active_shares":0,"current":false}]}

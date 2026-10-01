@@ -1,0 +1,16 @@
+[stdout]
+List the devices signed in to your account: when each signed in, when it
+was last used and how many shares it runs. A dot marks this device.
+
+Usage:
+  purlview devices [flags]
+  purlview devices [command]
+
+Available Commands:
+  signout     Sign out a device and stop its shares
+
+Flags:
+  -h, --help   Show help for devices.
+
+Use "purlview devices [command] --help" for more information about a command.
+[stderr]

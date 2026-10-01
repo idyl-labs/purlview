@@ -1,0 +1,16 @@
+[stdout]
+List the active shares of your account, on all of your devices.
+
+Each row shows the share's id, your app (with +1 for each further app the
+share names), who can open it, the device that shares it, its status
+(Sharing, Reconnecting or Starting) and the time left.
+A dot marks this device's rows. Links are never shown here: print one with
+'purlview link <id>'. If Purlview can't be reached, only this device's shares
+are listed and the command says so.
+
+Usage:
+  purlview list [flags]
+
+Flags:
+  -h, --help   Show help for list.
+[stderr]

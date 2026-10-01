@@ -1,0 +1,22 @@
+# Build output
+/dist/
+/build/
+/purlview
+/purlview.exe
+/cmd/purlview/purlview
+/cmd/purlview/purlview.exe
+coverage.out
+*.test
+
+# Signing material must never be committed
+*.p12
+*.pfx
+*.key
+*.pem
+*.keychain-db
+
+# Editor and OS files
+.DS_Store
+.idea/
+.vscode/
+*.swp

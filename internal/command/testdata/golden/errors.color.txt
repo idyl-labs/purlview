@@ -1,0 +1,42 @@
+[stdout]
+[stderr]
+[31m✗[0m Nothing is answering at [36mlocalhost:3000[0m [90m— start your app, then share again[0m
+[31m✗[0m Couldn't reach Purlview [90m— check your connection and try again[0m
+[31m✗[0m Not signed in [90m— run [0mpurlview login[90m first[0m
+[31m✗[0m --ttl 2h is over the 1h limit [90m— use 1h or less[0m
+[90mRun 'purlview share --help' for usage.[0m
+[31m✗[0m reviewer isn't an email address
+[90mRun 'purlview share --help' for usage.[0m
+[31m✗[0m 70000 isn't a valid port [90m— ports run from 1 to 65535[0m
+[90mRun 'purlview share --help' for usage.[0m
+[31m✗[0m localhost needs a port [90m— try [0mpurlview share localhost:3000
+[90mRun 'purlview share --help' for usage.[0m
+[31m✗[0m That address is too long [90m— addresses are up to 256 characters[0m
+[90mRun 'purlview share --help' for usage.[0m
+[31m✗[0m No share [36mk7m2p4qx[0m in your account [90m— see [0mpurlview list
+[31m✗[0m The share didn't start within 30s [90m— nothing was left running; try again[0m
+Cancelled [90m— nothing was left running[0m
+Cancelled [90m— Purlview couldn't confirm; see [0mpurlview list
+[31m✗[0m Couldn't start Purlview's background process [90m— runtime directory is not writable[0m
+[90m→ purlview daemon status[0m
+[31m✗[0m Purlview's background process stopped [90m— nothing was left running; try again[0m
+[31m✗[0m This device was signed out [90m— run [0mpurlview login
+[31m✗[0m Couldn't confirm [36mk7m2p4qx[0m stopped [90m— try again, or see [0mpurlview list
+[31m✗[0m No device [36mlaptop[0m in your account [90m— see [0mpurlview devices
+[31m✗[0m share names 11 apps [90m— a share takes 10 at most[0m
+[90mRun 'purlview share --help' for usage.[0m
+[31m✗[0m localhost:5173 is named twice [90m— list each app once[0m
+[90mRun 'purlview share --help' for usage.[0m
+[31m✗[0m share needs a port or an address [90m— try [0mpurlview share 3000
+[90mRun 'purlview share --help' for usage.[0m
+[31m✗[0m shar isn't a purlview command
+[90m→ purlview share[0m
+[90mRun 'purlview --help' for usage.[0m
+[31m✗[0m link takes a share id, not a link [90m— try [0mpurlview link k7m2p4qx
+[90mRun 'purlview link --help' for usage.[0m
+[31m✗[0m Sign-in was not finished [90m— run [0mpurlview login[90m again[0m
+[31m✗[0m You've reached your limit of running shares [90m— stop one with [0mpurlview stop[90m, then share again[0m
+[31m✗[0m You've reached your limit of new shares this hour [90m— try again later[0m
+[31m✗[0m You've reached a Purlview limit [90m— try again later[0m
+[31m✗[0m This version of Purlview is no longer supported [90m— update with [0mbrew upgrade --cask purlview[90m, then share again[0m
+[31m✗[0m This version of Purlview is no longer supported [90m— download the latest from [0m[34mhttps://github.com/idyl-labs/purlview-releases/releases/latest[0m

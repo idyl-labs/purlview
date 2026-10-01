@@ -1,0 +1,13 @@
+[stdout]
+Sign out on this device. It works offline.
+
+Running shares continue until they are stopped or expire; a new share asks
+you to sign in again. To sign out another device, and stop its shares, use
+'purlview devices signout'.
+
+Usage:
+  purlview logout [flags]
+
+Flags:
+  -h, --help   Show help for logout.
+[stderr]

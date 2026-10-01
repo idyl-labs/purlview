@@ -1,0 +1,3 @@
+[stdout]
+[stderr]
+! This device was signed out — sign in again

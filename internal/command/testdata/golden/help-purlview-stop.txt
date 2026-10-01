@@ -1,0 +1,18 @@
+[stdout]
+Stop one of your shares, on this device or on any other device of yours.
+
+Give the share's id from 'purlview list', its link, or the address of a page
+you opened through it. Purlview stops the share itself, so this works even
+when the device that shares it is offline. The command reports success only
+once Purlview has confirmed the stop.
+
+Usage:
+  purlview stop <id or link> [flags]
+
+Examples:
+  purlview stop k7m2p4qx
+  purlview stop https://k7m2p4qx.purlview.link/
+
+Flags:
+  -h, --help   Show help for stop.
+[stderr]

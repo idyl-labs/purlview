@@ -1,0 +1,5 @@
+[stdout]
+  NAME     SIGNED IN  LAST USED  SHARES
+● macbook  Sep 19     today           1
+  laptop   Sep 2      today           1
+[stderr]

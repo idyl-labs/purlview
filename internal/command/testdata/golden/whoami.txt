@@ -1,0 +1,5 @@
+[stdout]
+Account  sam@example.com
+Device   macbook
+Status   Signed in
+[stderr]

@@ -1,0 +1,3 @@
+[stdout]
+[stderr]
+! Purlview was updated — shares started before the update have stopped

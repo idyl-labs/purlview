@@ -1,0 +1,6 @@
+[stdout]
+[90mAccount[0m  sam@example.com
+[90mDevice [0m  macbook
+[90mStatus [0m  [31mSigned out from another device[0m
+[stderr]
+[90m→ purlview login[0m

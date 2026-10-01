@@ -1,0 +1,3 @@
+[stdout]
+[stderr]
+✓ k7m2p4qx was already stopped

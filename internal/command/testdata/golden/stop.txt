@@ -1,0 +1,3 @@
+[stdout]
+[stderr]
+✓ Stopped k7m2p4qx — the link no longer works

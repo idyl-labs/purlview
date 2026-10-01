@@ -1,0 +1,5 @@
+[stdout]
+  ID        APP                ACCESS                DEVICE       STATUS   EXPIRES
+● k7m2p4qx  localhost:5173 +1  Anyone with the link  this device  Sharing  in 43m
+[stderr]
+! Showing this device only — couldn't reach Purlview

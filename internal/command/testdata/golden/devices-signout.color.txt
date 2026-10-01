@@ -1,0 +1,3 @@
+[stdout]
+[stderr]
+Sign out laptop? Its 1 share will stop. [90m[y/N][0m [32m✓[0m Signed out [36mlaptop[0m

@@ -1,0 +1,9 @@
+[stdout]
+[stderr]
+✗ macbook is this device
+→ purlview logout
+✗ 2 devices are named laptop — sign one out by its id
+  ID           SIGNED IN  LAST USED  SHARES
+● dev_macbook  Sep 19     today           1
+  dev_laptop   Sep 2      today           1
+✗ Signing out laptop needs a yes — add --yes

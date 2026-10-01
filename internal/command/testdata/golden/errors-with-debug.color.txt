@@ -1,0 +1,4 @@
+[stdout]
+[stderr]
+[31m✗[0m Couldn't reach Purlview [90m— check your connection and try again[0m
+[90m  dial tcp 203.0.113.9:443: connect: connection refused[0m

@@ -1,0 +1,12 @@
+[stdout]
+[stderr]
+  [90mCode:[0m 
+[31m✗[0m That code didn't match [90m— 4 attempts left[0m
+  [90mCode:[0m 
+[31m✗[0m That code didn't match [90m— codes have 6 digits[0m
+  [90mCode:[0m 
+[33m![0m Wait 40s before asking for another code
+  [90mCode:[0m 
+[33m![0m No more codes for this sign-in [90m— run [0mpurlview login[90m to start over[0m
+  [90mCode:[0m 
+[31m✗[0m That code has expired [90m— run [0mpurlview login[90m to get a new one[0m

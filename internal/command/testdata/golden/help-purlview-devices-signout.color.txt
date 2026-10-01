@@ -1,0 +1,17 @@
+[stdout]
+Sign out one of your other devices. Its shares stop, and it has to sign in
+again before it can share. To sign out this device, use 'purlview logout'.
+
+When two devices have the same name, give the id this command then shows.
+
+Usage:
+  purlview devices signout <name> [flags]
+
+Examples:
+  purlview devices signout laptop
+  purlview devices signout laptop --yes
+
+Flags:
+  -h, --help   Show help for signout.
+      --yes    Sign out without asking.
+[stderr]

@@ -1,0 +1,4 @@
+[stdout]
+[stderr]
+3:10 PM  [31m✗[0m Purlview's background process stopped [90m— the link no longer works[0m
+3:10 PM  [31m✗[0m Purlview stopped this share [90m— the link no longer works[0m

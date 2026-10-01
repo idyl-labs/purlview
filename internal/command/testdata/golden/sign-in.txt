@@ -1,0 +1,10 @@
+[stdout]
+[stderr]
+
+Sign in to Purlview
+
+  Email: 
+  Code sent. Check your inbox.
+  Code: 
+
+✓ Signed in as sam@example.com

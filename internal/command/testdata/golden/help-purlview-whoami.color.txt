@@ -1,0 +1,10 @@
+[stdout]
+Show the account signed in on this device, the device's name and whether
+Purlview confirmed the sign-in just now. Nothing secret is shown.
+
+Usage:
+  purlview whoami [flags]
+
+Flags:
+  -h, --help   Show help for whoami.
+[stderr]

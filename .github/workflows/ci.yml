@@ -1,0 +1,95 @@
+name: CI
+
+# Builds, vets, lints and tests the module on Linux, macOS and Windows, on
+# both CPU architectures. It uses no secrets and fetches every dependency as a
+# public Go module, so it can pass only once github.com/idyl-labs/hyperplane-go
+# is public.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # The Go version comes from go.mod; refuse to download another one.
+  GOTOOLCHAIN: local
+  GOFLAGS: -mod=readonly
+
+jobs:
+  checks:
+    name: formatting, modules and scripts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: gofmt
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then echo "not gofmt-formatted:"; echo "$unformatted"; exit 1; fi
+      - name: Module tidiness
+        run: go mod tidy -diff
+      - name: Module checksums
+        run: go mod verify
+      - name: shellcheck
+        run: |
+          shellcheck --version
+          shellcheck -s sh install/install.sh
+      - name: PSScriptAnalyzer
+        shell: pwsh
+        run: |
+          Install-Module -Name PSScriptAnalyzer -RequiredVersion 1.25.0 -Scope CurrentUser -Force -AcceptLicense
+          # Installer output is for a person at a terminal.
+          $results = Invoke-ScriptAnalyzer -Path install/install.ps1 -Severity Error, Warning -ExcludeRule PSAvoidUsingWriteHost
+          $results | Format-Table RuleName, Severity, Line, Message -AutoSize | Out-String -Width 200 | Write-Host
+          if ($results.Count -gt 0) { exit 1 }
+
+  test:
+    name: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm, macos-15, macos-15-intel, windows-2025, windows-11-arm]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    env:
+      # The race detector needs cgo and a C toolchain; the Windows Arm64
+      # image has none and Go does not support -race there, so that runner
+      # runs the same tests without it.
+      RACE: ${{ matrix.runner != 'windows-11-arm' && '-race' || '' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Build
+        shell: bash
+        run: go build ./...
+      - name: go vet
+        shell: bash
+        run: go vet ./...
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
+        with:
+          version: v2.13.2
+      - name: Tests (daemon lifecycle, IPC and installer tests run the built executable natively)
+        shell: bash
+        run: go test ${{ env.RACE }} -count=1 -timeout 20m ./...
+      - name: A source build runs and identifies itself
+        shell: bash
+        run: |
+          go build -o ./purlview-ci ./cmd/purlview
+          ./purlview-ci --version
+          ./purlview-ci --version | grep -q 'built by: source'
+          ./purlview-ci --help >/dev/null
+          ./purlview-ci completion bash >/dev/null
+          ./purlview-ci completion powershell >/dev/null

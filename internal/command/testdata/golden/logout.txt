@@ -1,0 +1,3 @@
+[stdout]
+[stderr]
+✓ Signed out on this device — running shares continue until stopped or expired

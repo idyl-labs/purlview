@@ -1,0 +1,4 @@
+[stdout]
+[stderr]
+No active shares
+→ purlview share 3000

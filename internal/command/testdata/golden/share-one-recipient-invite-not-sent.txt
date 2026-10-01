@@ -1,0 +1,11 @@
+[stdout]
+https://k7m2p4qx.purlview.link/
+[stderr]
+✓ Sharing localhost:3000
+✓ Invite sent to ana@example.com
+! Invite not sent to raj@example.com — send them the link yourself
+
+
+Access   Only ana@example.com and raj@example.com
+Expires  in 1h · 3:42 PM
+Stop     Ctrl-C

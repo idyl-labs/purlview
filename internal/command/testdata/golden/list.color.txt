@@ -1,0 +1,5 @@
+[stdout]
+[90m  ID        APP                ACCESS                DEVICE       STATUS        EXPIRES[0m
+[32m●[0m [36mk7m2p4qx[0m  localhost:5173 +1  Anyone with the link  this device  [32mSharing[0m       in 43m
+  [36mp4q9x2bd[0m  localhost:3000     ana@example.com +1    laptop       [33mReconnecting[0m  in 12m
+[stderr]

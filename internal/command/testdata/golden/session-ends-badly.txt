@@ -1,0 +1,4 @@
+[stdout]
+[stderr]
+3:10 PM  ✗ Purlview's background process stopped — the link no longer works
+3:10 PM  ✗ Purlview stopped this share — the link no longer works

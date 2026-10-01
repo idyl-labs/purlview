@@ -1,0 +1,9 @@
+[stdout]
+[stderr]
+[31m✗[0m [36mmacbook[0m is this device
+[90m→ purlview logout[0m
+[31m✗[0m 2 devices are named [36mlaptop[0m [90m— sign one out by its id[0m
+[90m  ID           SIGNED IN  LAST USED  SHARES[0m
+[32m●[0m [36mdev_macbook[0m  Sep 19     today           1
+  [36mdev_laptop[0m   Sep 2      today           1
+[31m✗[0m Signing out [36mlaptop[0m needs a yes [90m— add [0m--yes

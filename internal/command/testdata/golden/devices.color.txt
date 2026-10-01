@@ -1,0 +1,5 @@
+[stdout]
+[90m  NAME     SIGNED IN  LAST USED  SHARES[0m
+[32m●[0m [36mmacbook[0m  Sep 19     today           1
+  [36mlaptop[0m   Sep 2      today           1
+[stderr]

@@ -1,0 +1,12 @@
+[stdout]
+[stderr]
+  Code: 
+✗ That code didn't match — 4 attempts left
+  Code: 
+✗ That code didn't match — codes have 6 digits
+  Code: 
+! Wait 40s before asking for another code
+  Code: 
+! No more codes for this sign-in — run purlview login to start over
+  Code: 
+✗ That code has expired — run purlview login to get a new one
