@@ -94,15 +94,8 @@ and so can a source build of a release tag.
 ### The Hyperplane Go client
 
 The daemon docks shares on Purlview's edge with the Hyperplane Go client,
-`github.com/idyl-labs/hyperplane-go`. Until that module is public, building
-this repository needs read access to it:
-
-```sh
-export GOPRIVATE=github.com/idyl-labs/hyperplane-go
-```
-
-with Git credentials that can read it. Once it is public, the build needs
-nothing beyond Go and the public module proxy.
+`github.com/idyl-labs/hyperplane-go`, an ordinary public Go module. Building
+needs nothing beyond Go and the public module proxy.
 
 ## Configuration
 

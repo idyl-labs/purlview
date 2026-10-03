@@ -2,8 +2,7 @@ name: CI
 
 # Builds, vets, lints and tests the module on Linux, macOS and Windows, on
 # both CPU architectures. It uses no secrets and fetches every dependency as a
-# public Go module, so it can pass only once github.com/idyl-labs/hyperplane-go
-# is public.
+# public Go module.
 on:
   push:
     branches: [main]

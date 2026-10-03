@@ -23,9 +23,7 @@ merged.
 ## Building
 
 You need Go 1.27.1 or later (with `GOTOOLCHAIN=auto`, Go 1.21 or later
-fetches it) and Git. Until `github.com/idyl-labs/hyperplane-go` is public, you
-also need read access to it and `GOPRIVATE=github.com/idyl-labs/hyperplane-go`
-(see the README).
+fetches it) and Git. Every dependency is a public Go module.
 
 ```sh
 go build -trimpath -o purlview ./cmd/purlview
@@ -77,9 +75,7 @@ a change to an API type and its example land together.
 ## Continuous integration
 
 `.github/workflows/ci.yml` builds, vets, lints and tests on Linux, macOS and
-Windows for every pull request. It needs no secrets, and so it can pass only
-once the Hyperplane Go client is public; until then, run the checks above
-locally.
+Windows for every pull request. It needs no secrets.
 
 ## Style
 
