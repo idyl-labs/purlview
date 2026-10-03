@@ -37,6 +37,8 @@ go vet ./...
 go test -race ./...
 go mod tidy -diff
 go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.13.2 run
+shellcheck -s sh install/install.sh && shellcheck -s bash release/*.sh
+go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
 ```
 
 On Windows on Arm, run the tests without `-race`. The tests run on macOS,
@@ -75,7 +77,18 @@ a change to an API type and its example land together.
 ## Continuous integration
 
 `.github/workflows/ci.yml` builds, vets, lints and tests on Linux, macOS and
-Windows for every pull request. It needs no secrets.
+Windows for every pull request, and lints the scripts, the workflows and the
+GoReleaser configuration. `dco.yml` checks every commit's sign-off. A change
+to the release definition also runs `release-snapshot.yml`, which builds the
+complete set of release artifacts without credentials and smoke-tests the
+Linux ones. None of them needs a secret.
+
+Releases are cut by maintainers; [docs/releasing.md](docs/releasing.md)
+describes how. To build the release artifacts locally:
+
+```sh
+goreleaser release --snapshot --clean --skip=publish,sign
+```
 
 ## Style
 
