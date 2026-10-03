@@ -4,7 +4,7 @@ go 1.27.1
 
 require (
 	github.com/Microsoft/go-winio v0.6.2
-	github.com/idyl-labs/hyperplane-go v0.0.0-20261003122850-2f47ef13d9f0
+	github.com/idyl-labs/hyperplane-go v0.0.0-20261003165645-2f5a473d6ef7
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.9
 	github.com/spiffe/go-spiffe/v2 v2.8.1
