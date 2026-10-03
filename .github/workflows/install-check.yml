@@ -1,0 +1,104 @@
+name: Install check
+
+# Installs the published CLI through every public channel, on every OS and
+# CPU the channel supports, exactly as purlview.com tells people to, and
+# checks what got installed (release/channel-check.sh and .ps1). The
+# release workflow's smoke tests check the built files before publishing;
+# this checks what a person actually gets afterwards.
+
+on:
+  # A change to the check runs it against the published channels.
+  pull_request:
+    paths:
+      - .github/workflows/install-check.yml
+      - release/channel-check.sh
+      - release/channel-check.ps1
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release to expect (vX.Y.Z); empty expects the latest stable release"
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  version:
+    name: expected release
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+    steps:
+      - id: resolve
+        env:
+          WANT: ${{ inputs.version }}
+        run: |
+          v="$WANT"
+          if [ -z "$v" ]; then
+            v="$(curl -fsSL -o /dev/null -w '%{url_effective}' https://github.com/idyl-labs/purlview-releases/releases/latest || true)"
+            if [[ "$v" != */tag/* ]]; then
+              # Before the first stable release there is nothing to install.
+              echo "::notice::No stable release is published yet; nothing to check."
+              exit 0
+            fi
+            v="${v##*/tag/}"
+          fi
+          [[ "$v" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "not a stable release: $v"; exit 1; }
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          echo "expecting $v"
+
+  unix:
+    name: ${{ matrix.method }} (${{ matrix.os }}/${{ matrix.arch }})
+    needs: version
+    if: needs.version.outputs.version != ''
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { method: script, os: darwin, arch: arm64, runner: macos-15 }
+          - { method: script, os: darwin, arch: amd64, runner: macos-15-intel }
+          - { method: homebrew, os: darwin, arch: arm64, runner: macos-15 }
+          - { method: homebrew, os: darwin, arch: amd64, runner: macos-15-intel }
+          - { method: script, os: linux, arch: amd64, runner: ubuntu-24.04 }
+          - { method: script, os: linux, arch: arm64, runner: ubuntu-24.04-arm }
+          - { method: apt, os: linux, arch: amd64, runner: ubuntu-24.04 }
+          - { method: apt, os: linux, arch: arm64, runner: ubuntu-24.04-arm }
+          - { method: dnf, os: linux, arch: amd64, runner: ubuntu-24.04, container: "fedora:42" }
+          - { method: dnf, os: linux, arch: arm64, runner: ubuntu-24.04-arm, container: "fedora:42" }
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install and check
+        if: ${{ !matrix.container }}
+        run: release/channel-check.sh "${{ matrix.method }}" "${{ needs.version.outputs.version }}"
+      - name: Install and check (clean container)
+        if: ${{ matrix.container }}
+        run: docker run --rm -v "$PWD/release:/check:ro" "${{ matrix.container }}" bash /check/channel-check.sh "${{ matrix.method }}" "${{ needs.version.outputs.version }}"
+
+  windows:
+    name: ${{ matrix.method }} (windows/${{ matrix.arch }})
+    needs: version
+    if: needs.version.outputs.version != ''
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { method: script, arch: amd64, runner: windows-2025 }
+          - { method: script, arch: arm64, runner: windows-11-arm }
+          - { method: scoop, arch: amd64, runner: windows-2025 }
+          - { method: scoop, arch: arm64, runner: windows-11-arm }
+          # WinGet joins once IdylLabs.Purlview is accepted into
+          # microsoft/winget-pkgs (purlview.com lists it as not live yet).
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install and check
+        shell: pwsh
+        run: release/channel-check.ps1 -Method "${{ matrix.method }}" -Version "${{ needs.version.outputs.version }}"
