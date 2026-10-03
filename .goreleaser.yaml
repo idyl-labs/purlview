@@ -1,0 +1,272 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+#
+# GoReleaser (OSS, pinned in .github/workflows) is the canonical build and
+# packaging definition. It produces dist/ and generates package-manager
+# metadata. It does not publish: the release workflow runs it with
+# --skip=publish and performs draft, upload, attest, publish and distribute
+# itself, in the order docs/releasing.md describes, so retries are safe.
+#
+# Local use (no credentials):
+#   goreleaser check
+#   goreleaser release --snapshot --clean --skip=publish,sign
+version: 2
+
+project_name: purlview
+
+metadata:
+  mod_timestamp: "{{ .CommitTimestamp }}"
+
+env:
+  - CGO_ENABLED=0
+  - GOFLAGS=-mod=readonly
+  - GOWORK=off
+
+before:
+  hooks:
+    - go mod verify
+    # Release helpers are compiled with the host toolchain so build hooks do
+    # not depend on `go run` under a cross-compilation environment.
+    - go build -trimpath -o build/tools/ ./internal/tools/gendocs ./internal/tools/applysigned
+    - build/tools/gendocs -out build/generated -version {{ .Version }} -date {{ .CommitDate }}
+
+builds:
+  - id: purlview
+    main: ./cmd/purlview
+    binary: purlview
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X github.com/idyl-labs/purlview/internal/buildinfo.version={{ .Version }}
+      - -X github.com/idyl-labs/purlview/internal/buildinfo.commit={{ .FullCommit }}
+      - -X github.com/idyl-labs/purlview/internal/buildinfo.date={{ .CommitDate }}
+      - -X github.com/idyl-labs/purlview/internal/buildinfo.builtBy={{ if .IsSnapshot }}goreleaser-snapshot{{ else }}goreleaser{{ end }}
+      # The update checker asks the repository that actually hosts releases
+      # (the same one the download URLs below point at).
+      - -X github.com/idyl-labs/purlview/internal/updatecheck.releaseRepository={{ envOrDefault "PURLVIEW_RELEASE_OWNER" "idyl-labs" }}/{{ envOrDefault "PURLVIEW_RELEASE_REPOSITORY" "purlview-releases" }}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+    # Conservative CPU baselines: GOAMD64=v1 and GOARM64=v8.0 (the defaults).
+    targets:
+      - darwin_arm64
+      - darwin_amd64_v1
+      - linux_arm64
+      - linux_amd64_v1
+      - windows_arm64
+      - windows_amd64_v1
+    hooks:
+      post:
+        # Swaps in natively signed binaries during the release assemble stage
+        # after proving the rebuild matches what was signed. No-op otherwise.
+        - cmd: build/tools/applysigned {{ .Path }} {{ .Os }} {{ .Arch }}
+          output: true
+
+archives:
+  - id: default
+    ids: [purlview]
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - LICENSE
+      - NOTICE
+      - src: build/generated/completions/*
+        dst: completions
+        strip_parent: true
+      - src: build/generated/man/*.1
+        dst: man
+        strip_parent: true
+
+nfpms:
+  - id: linux-packages
+    ids: [purlview]
+    package_name: purlview
+    file_name_template: "{{ .PackageName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    vendor: Idyl Labs
+    homepage: https://purlview.com
+    maintainer: Idyl Labs <support@idyl.network>
+    license: Apache-2.0
+    description: |-
+      Share your running app. Improve it together.
+      Purlview shares a running application for live user feedback and supported hot reload.
+    formats: [deb, rpm]
+    bindir: /usr/bin
+    section: utils
+    priority: optional
+    contents:
+      - src: build/generated/completions/purlview.bash
+        dst: /usr/share/bash-completion/completions/purlview
+      - src: build/generated/completions/_purlview
+        dst: /usr/share/zsh/vendor-completions/_purlview
+        packager: deb
+      - src: build/generated/completions/_purlview
+        dst: /usr/share/zsh/site-functions/_purlview
+        packager: rpm
+      - src: build/generated/completions/purlview.fish
+        dst: /usr/share/fish/vendor_completions.d/purlview.fish
+      - src: build/generated/man-gz/*.1.gz
+        dst: /usr/share/man/man1/
+      - src: LICENSE
+        dst: /usr/share/doc/purlview/LICENSE
+        type: doc
+      - src: NOTICE
+        dst: /usr/share/doc/purlview/NOTICE
+        type: doc
+    rpm:
+      summary: Share your running app and improve it together
+    deb:
+      lintian_overrides:
+        - statically-linked-binary
+
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256
+
+sboms:
+  - id: archives
+    artifacts: archive
+    args: ["$artifact", "--output", "spdx-json=$document"]
+  - id: packages
+    artifacts: package
+    args: ["$artifact", "--output", "spdx-json=$document"]
+
+signs:
+  # Keyless Sigstore signature of checksums.txt, made with the GitHub OIDC
+  # identity of this repository's release workflow at the release tag.
+  # docs/releasing.md shows how to verify it.
+  - id: checksums
+    cmd: cosign
+    artifacts: checksum
+    signature: "${artifact}.sigstore.json"
+    args: ["sign-blob", "--bundle=${signature}", "${artifact}", "--yes"]
+    output: true
+
+release:
+  # Releases are published to a separate public repository; download URLs in
+  # the generated package metadata point at it.
+  github:
+    owner: '{{ envOrDefault "PURLVIEW_RELEASE_OWNER" "idyl-labs" }}'
+    name: '{{ envOrDefault "PURLVIEW_RELEASE_REPOSITORY" "purlview-releases" }}'
+  draft: true
+  prerelease: auto
+  mode: keep-existing
+  name_template: "{{ .Tag }}"
+
+changelog:
+  use: git
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore\\(deps\\)"
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next.{{ .ShortCommit }}"
+
+report_sizes: true
+
+# Package-manager metadata is generated into dist/ on every run. The release
+# workflow's distribute stage commits it to the repositories below after the
+# GitHub release is published, never before.
+homebrew_casks:
+  - name: purlview
+    ids: [default]
+    repository:
+      owner: '{{ envOrDefault "PURLVIEW_TAP_OWNER" "idyl-labs" }}'
+      name: '{{ envOrDefault "PURLVIEW_TAP_REPOSITORY" "homebrew-tap" }}'
+      branch: main
+    directory: Casks
+    homepage: https://purlview.com
+    description: Share your running app and improve it together
+    license: Apache-2.0
+    binaries: [purlview]
+    completions:
+      bash: completions/purlview.bash
+      zsh: completions/_purlview
+      fish: completions/purlview.fish
+    manpages:
+      - man/purlview.1
+      - man/purlview-share.1
+      - man/purlview-list.1
+      - man/purlview-unshare.1
+      - man/purlview-login.1
+      - man/purlview-logout.1
+      - man/purlview-whoami.1
+      - man/purlview-completion.1
+    # brew upgrade/uninstall runs the installed cask's uninstall_preflight as
+    # the user: stop that user's daemon (ending its shares) before the old
+    # executable is removed, as the installer scripts do. --maintenance also
+    # refuses daemon starts until the new cask's postflight resumes them, so a
+    # share started mid-upgrade cannot launch the old executable; the marker
+    # expires on its own after 3 minutes if nothing resumes (uninstall). An
+    # older executable without a command exits 2; ignore it. brew never runs
+    # as root, so this stays user-scoped.
+    hooks:
+      pre:
+        uninstall: |
+          system_command "#{HOMEBREW_PREFIX}/bin/purlview", args: ["daemon", "stop", "--maintenance", "--timeout", "20s"], must_succeed: false
+      post:
+        install: |
+          system_command "#{HOMEBREW_PREFIX}/bin/purlview", args: ["daemon", "resume"], must_succeed: false
+    caveats: |
+      Upgrading or uninstalling Purlview stops its local daemon and ends any
+      active shares. Start a share again afterwards.
+    skip_upload: auto
+    commit_author:
+      name: purlview-release
+      email: 41898282+github-actions[bot]@users.noreply.github.com
+    commit_msg_template: "purlview {{ .Tag }}"
+
+scoops:
+  - name: purlview
+    ids: [default]
+    repository:
+      owner: '{{ envOrDefault "PURLVIEW_SCOOP_OWNER" "idyl-labs" }}'
+      name: '{{ envOrDefault "PURLVIEW_SCOOP_REPOSITORY" "scoop-bucket" }}'
+      branch: main
+    homepage: https://purlview.com
+    description: Share your running app and improve it together
+    license: Apache-2.0
+    # scoop update: stop the installed copy's daemon before Scoop removes its
+    # directory (Windows cannot delete a running executable), refusing starts
+    # until the new copy resumes them, as the installer script does. Errors
+    # never fail the install: the marker expires after 3 minutes.
+    pre_install:
+      - '$old = Join-Path (Split-Path $dir) "current\purlview.exe"; if (Test-Path $old) { try { & $old daemon stop --maintenance --timeout 20s *> $null } catch {} }'
+    post_install:
+      - 'try { & "$dir\purlview.exe" daemon resume *> $null } catch {}'
+    skip_upload: auto
+    commit_author:
+      name: purlview-release
+      email: 41898282+github-actions[bot]@users.noreply.github.com
+    commit_msg_template: "purlview {{ .Tag }}"
+
+winget:
+  - name: purlview
+    ids: [default]
+    publisher: Idyl Labs
+    package_identifier: IdylLabs.Purlview
+    publisher_url: https://github.com/idyl-labs
+    publisher_support_url: https://github.com/idyl-labs/purlview/issues
+    homepage: https://purlview.com
+    short_description: Share your running app. Improve it together.
+    license: Apache-2.0
+    license_url: https://github.com/idyl-labs/purlview/blob/main/LICENSE
+    tags: [cli, share, tunnel, web]
+    skip_upload: auto
+    repository:
+      owner: '{{ envOrDefault "PURLVIEW_WINGET_FORK_OWNER" "idyl-labs" }}'
+      name: winget-pkgs
+      branch: "{{ .ProjectName }}-{{ .Version }}"
+      pull_request:
+        enabled: true
+        base:
+          owner: microsoft
+          name: winget-pkgs
+          branch: master
+    commit_author:
+      name: purlview-release
+      email: 41898282+github-actions[bot]@users.noreply.github.com
+    commit_msg_template: "New version: {{ .PackageIdentifier }} version {{ .Version }}"

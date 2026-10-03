@@ -43,14 +43,28 @@ jobs:
         run: |
           shellcheck --version
           shellcheck -s sh install/install.sh
+          shellcheck -s bash release/*.sh
       - name: PSScriptAnalyzer
         shell: pwsh
         run: |
           Install-Module -Name PSScriptAnalyzer -RequiredVersion 1.25.0 -Scope CurrentUser -Force -AcceptLicense
-          # Installer output is for a person at a terminal.
-          $results = Invoke-ScriptAnalyzer -Path install/install.ps1 -Severity Error, Warning -ExcludeRule PSAvoidUsingWriteHost
-          $results | Format-Table RuleName, Severity, Line, Message -AutoSize | Out-String -Width 200 | Write-Host
-          if ($results.Count -gt 0) { exit 1 }
+          $failed = $false
+          foreach ($file in 'install/install.ps1', 'release/smoke.ps1', 'release/channel-check.ps1') {
+            # Installer and smoke output is for a person at a terminal.
+            $results = Invoke-ScriptAnalyzer -Path $file -Severity Error, Warning -ExcludeRule PSAvoidUsingWriteHost
+            "== $file : $($results.Count) findings"
+            $results | Format-Table RuleName, Severity, Line, Message -AutoSize | Out-String -Width 200 | Write-Host
+            if ($results.Count -gt 0) { $failed = $true }
+          }
+          if ($failed) { exit 1 }
+      - name: actionlint
+        run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+      - name: GoReleaser configuration
+        uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
+        with:
+          distribution: goreleaser
+          version: v2.18.1
+          args: check
 
   test:
     name: ${{ matrix.runner }}

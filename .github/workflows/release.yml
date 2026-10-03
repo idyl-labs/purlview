@@ -1,0 +1,639 @@
+name: Release
+
+# Ordering (docs/releasing.md):
+#   preflight -> build (unsigned, all six targets) -> sign-macos / sign-windows
+#   -> assemble (GoReleaser packages the signed binaries; checksums, SBOMs,
+#   Sigstore bundle, package metadata) -> verify (native smoke on six runners)
+#   -> publish (draft release, upload, provenance attestation, publish)
+#   -> distribute (Homebrew tap, Scoop bucket, APT and DNF repositories,
+#   WinGet pull request).
+#
+# Re-running a failed job is safe: publish accepts an existing draft or an
+# identical published release, and distribute never rolls a channel back.
+#
+# Run it by pushing a tag, or dispatch it with the tag selected as the ref.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      allow_unsigned:
+        description: "Prerelease rehearsal without native signing credentials (labelled as unsigned)"
+        type: boolean
+        default: false
+      allow_unsigned_windows:
+        description: "Publish the Windows executables unsigned (stable allowed; macOS must still be signed)"
+        type: boolean
+        default: false
+      previous_tag:
+        description: "Published tag to start the upgrade check from (default: latest published release before this one)"
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  GOTOOLCHAIN: local
+  GOFLAGS: -mod=readonly
+  # Releases are published to this public repository in the same
+  # organisation. GoReleaser reads both names (.goreleaser.yaml), so build and
+  # assemble bake the same update-check repository into the executable.
+  PURLVIEW_RELEASE_OWNER: ${{ github.repository_owner }}
+  PURLVIEW_RELEASE_REPOSITORY: purlview-releases
+
+jobs:
+  preflight:
+    name: preflight
+    runs-on: ubuntu-24.04
+    # Longer than preflight.sh's 45-minute wait for the CI checks on the
+    # commit, so a slow CI run is waited for rather than cut off.
+    timeout-minutes: 55
+    # The signing and release-app secrets live in the release environment; a
+    # job outside it sees them as empty and would report every release
+    # unsigned. Its required reviewers approve here, before anything is built.
+    environment: release
+    permissions:
+      contents: read
+      checks: read
+      actions: read
+    outputs:
+      tag: ${{ steps.decide.outputs.tag }}
+      version: ${{ steps.decide.outputs.version }}
+      commit: ${{ steps.decide.outputs.commit }}
+      prerelease: ${{ steps.decide.outputs.prerelease }}
+      release_repository: ${{ steps.decide.outputs.release_repository }}
+      release_public: ${{ steps.decide.outputs.release_public }}
+      cross_repo: ${{ steps.decide.outputs.cross_repo }}
+      sign_macos: ${{ steps.decide.outputs.sign_macos }}
+      sign_windows: ${{ steps.decide.outputs.sign_windows }}
+      allow_unsigned: ${{ steps.decide.outputs.allow_unsigned }}
+      unsigned_windows: ${{ steps.decide.outputs.unsigned_windows }}
+      publish_channels: ${{ steps.decide.outputs.publish_channels }}
+      publish_winget: ${{ steps.decide.outputs.publish_winget }}
+      publish_packages: ${{ steps.decide.outputs.publish_packages }}
+      previous_tag: ${{ steps.decide.outputs.previous_tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Mint read token for the release repository
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ env.PURLVIEW_RELEASE_REPOSITORY }}
+          permission-contents: read
+      - name: Validate tag, commit, checks and credentials
+        id: decide
+        env:
+          TAG: ${{ github.ref_name }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          RELEASE_TARGET: ${{ env.PURLVIEW_RELEASE_OWNER }}/${{ env.PURLVIEW_RELEASE_REPOSITORY }}
+          ALLOW_UNSIGNED_INPUT: ${{ inputs.allow_unsigned }}
+          ALLOW_UNSIGNED_VAR: ${{ vars.PURLVIEW_ALLOW_UNSIGNED_PRERELEASE }}
+          ALLOW_UNSIGNED_WINDOWS_INPUT: ${{ inputs.allow_unsigned_windows }}
+          PRERELEASE_CHANNELS_VAR: ${{ vars.PURLVIEW_PRERELEASE_CHANNELS }}
+          PREVIOUS_TAG_INPUT: ${{ inputs.previous_tag }}
+          HAS_APPLE_SIGNING: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE_P12 != '' && secrets.APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD != '' }}
+          HAS_APPLE_NOTARY: ${{ secrets.APPLE_NOTARY_KEY_ID != '' && secrets.APPLE_NOTARY_ISSUER_ID != '' && secrets.APPLE_NOTARY_PRIVATE_KEY != '' }}
+          HAS_AZURE_OIDC: ${{ secrets.AZURE_CLIENT_ID != '' && secrets.AZURE_TENANT_ID != '' && secrets.AZURE_SUBSCRIPTION_ID != '' }}
+          HAS_ARTIFACT_SIGNING: ${{ vars.ARTIFACT_SIGNING_ENDPOINT != '' && vars.ARTIFACT_SIGNING_ACCOUNT != '' && vars.ARTIFACT_SIGNING_CERTIFICATE_PROFILE != '' }}
+          HAS_RELEASE_APP: ${{ secrets.RELEASE_APP_ID != '' && secrets.RELEASE_APP_PRIVATE_KEY != '' }}
+          # A job-level if cannot see release-environment variables (the
+          # environment is loaded only when the job starts), so preflight,
+          # which runs in it, decides for the distribute jobs.
+          HAS_WINGET_FORK: ${{ vars.PURLVIEW_WINGET_FORK != '' }}
+          HAS_PACKAGES_ROLE: ${{ vars.PURLVIEW_PACKAGES_ROLE_ARN != '' }}
+          HAS_PACKAGES_CONFIG: ${{ vars.PURLVIEW_PACKAGES_AWS_REGION != '' && vars.PURLVIEW_PACKAGES_BUCKET != '' && vars.PURLVIEW_PACKAGE_SIGNING_SECRET_ID != '' && vars.PURLVIEW_PACKAGE_SIGNING_FINGERPRINT != '' }}
+        run: release/preflight.sh
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: previous-packages
+          path: previous
+          retention-days: 7
+          include-hidden-files: true
+
+  build:
+    name: build unsigned binaries
+    needs: preflight
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
+        with:
+          distribution: goreleaser
+          version: v2.18.1
+          args: build --clean
+      - name: Record unsigned binaries and their digests
+        run: |
+          set -euo pipefail
+          mkdir -p unsigned
+          jq -r '.[] | select(.type == "Binary") | "\(.goos)_\(.goarch)\t\(.path)"' dist/artifacts.json | while IFS=$'\t' read -r target path; do
+            mkdir -p "unsigned/$target"
+            cp "$path" "unsigned/$target/"
+            (cd "unsigned/$target" && sha256sum "$(basename "$path")" > unsigned.sha256)
+            cat "unsigned/$target/unsigned.sha256"
+          done
+          [ "$(find unsigned -mindepth 1 -maxdepth 1 -type d | wc -l)" -eq 6 ] || { echo "expected six targets"; exit 1; }
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: unsigned-binaries
+          path: unsigned
+          retention-days: 7
+          if-no-files-found: error
+
+  sign-macos:
+    name: sign and notarize macOS
+    needs: [preflight, build]
+    if: needs.preflight.outputs.sign_macos == 'true'
+    runs-on: macos-15
+    timeout-minutes: 60
+    environment: release
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: unsigned-binaries
+          path: unsigned
+      - name: Sign, notarize and verify
+        env:
+          APPLE_DEVELOPER_ID_CERTIFICATE_P12: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE_P12 }}
+          APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD }}
+          APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+          APPLE_NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
+          APPLE_NOTARY_PRIVATE_KEY: ${{ secrets.APPLE_NOTARY_PRIVATE_KEY }}
+          APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+        run: release/sign-macos.sh --in unsigned --out signed
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: signed-darwin
+          path: signed
+          retention-days: 30
+          if-no-files-found: error
+
+  sign-windows:
+    name: sign Windows (Artifact Signing)
+    needs: [preflight, build]
+    if: needs.preflight.outputs.sign_windows == 'true'
+    runs-on: windows-2025
+    timeout-minutes: 30
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: unsigned-binaries
+          path: unsigned
+      - name: Stage Windows executables
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path signed | Out-Null
+          foreach ($t in 'windows_amd64', 'windows_arm64') {
+            Copy-Item -Recurse "unsigned\$t" "signed\$t"
+          }
+      - uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - uses: azure/artifact-signing-action@c7ab2a863ab5f9a846ddb8265964877ef296ee82 # v2.0.0
+        with:
+          endpoint: ${{ vars.ARTIFACT_SIGNING_ENDPOINT }}
+          signing-account-name: ${{ vars.ARTIFACT_SIGNING_ACCOUNT }}
+          certificate-profile-name: ${{ vars.ARTIFACT_SIGNING_CERTIFICATE_PROFILE }}
+          files-folder: signed
+          files-folder-filter: exe
+          files-folder-recurse: true
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+      - name: Verify signatures
+        shell: pwsh
+        run: |
+          $failed = $false
+          foreach ($exe in Get-ChildItem -Recurse signed -Filter purlview.exe) {
+            $sig = Get-AuthenticodeSignature -LiteralPath $exe.FullName
+            "$($exe.FullName): $($sig.Status) $($sig.SignerCertificate.Subject) (timestamp: $($sig.TimeStamperCertificate.Subject))"
+            if ($sig.Status -ne 'Valid' -or -not $sig.TimeStamperCertificate) { $failed = $true }
+          }
+          if ($failed) { throw 'a Windows executable is not validly signed and timestamped' }
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: signed-windows
+          path: signed
+          retention-days: 30
+          if-no-files-found: error
+
+  assemble:
+    name: assemble artifact set
+    needs: [preflight, build, sign-macos, sign-windows]
+    if: >-
+      always() && needs.preflight.result == 'success' && needs.build.result == 'success'
+      && (needs.sign-macos.result == 'success' || needs.sign-macos.result == 'skipped')
+      && (needs.sign-windows.result == 'success' || needs.sign-windows.result == 'skipped')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write # keyless Sigstore signature of checksums.txt
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - uses: anchore/sbom-action/download-syft@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
+        with:
+          syft-version: v1.51.1
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        with:
+          cosign-release: v3.1.3
+      # Signed inputs live outside the checkout so GoReleaser's clean-tree
+      # validation still holds.
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        if: needs.sign-macos.result == 'success'
+        with:
+          name: signed-darwin
+          path: ${{ runner.temp }}/signed
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        if: needs.sign-windows.result == 'success'
+        with:
+          name: signed-windows
+          path: ${{ runner.temp }}/signed
+      - name: Package with GoReleaser (signed binaries swapped in after a rebuild hash check)
+        uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
+        env:
+          PURLVIEW_SIGNED_BINARIES: ${{ runner.temp }}/signed
+          PURLVIEW_ALLOW_UNSIGNED: ${{ needs.preflight.outputs.allow_unsigned == 'true' && 'true' || needs.preflight.outputs.unsigned_windows == 'true' && 'windows' || 'false' }}
+          PURLVIEW_TAP_REPOSITORY: ${{ vars.PURLVIEW_TAP_REPOSITORY || 'homebrew-tap' }}
+          PURLVIEW_SCOOP_REPOSITORY: ${{ vars.PURLVIEW_SCOOP_REPOSITORY || 'scoop-bucket' }}
+          PURLVIEW_WINGET_FORK_OWNER: ${{ vars.PURLVIEW_WINGET_FORK_OWNER || github.repository_owner }}
+        with:
+          distribution: goreleaser
+          version: v2.18.1
+          args: release --clean --skip=publish,announce
+      - name: Confirm which targets carry native signatures
+        run: |
+          set -euo pipefail
+          echo "signed binaries applied (from the build hook output above):"
+          ls -R "$RUNNER_TEMP/signed" 2>/dev/null || echo "(none: unsigned rehearsal)"
+          test -f dist/checksums.txt.sigstore.json
+          cosign verify-blob \
+            --certificate-identity "https://github.com/${GITHUB_REPOSITORY}/.github/workflows/release.yml@refs/tags/${{ needs.preflight.outputs.tag }}" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            --bundle dist/checksums.txt.sigstore.json dist/checksums.txt
+      - name: Release notes
+        env:
+          RELEASE_REPOSITORY: ${{ needs.preflight.outputs.release_repository }}
+          SOURCE_REPOSITORY: ${{ github.repository }}
+          UNSIGNED: ${{ needs.preflight.outputs.allow_unsigned }}
+          UNSIGNED_WINDOWS: ${{ needs.preflight.outputs.unsigned_windows }}
+        run: release/release-notes.sh "${{ needs.preflight.outputs.tag }}" dist dist/release-notes.md && cat dist/release-notes.md
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-dist
+          path: |
+            dist/*.tar.gz
+            dist/*.zip
+            dist/*.deb
+            dist/*.rpm
+            dist/*.sbom.json
+            dist/checksums.txt
+            dist/checksums.txt.sigstore.json
+            dist/metadata.json
+            dist/artifacts.json
+            dist/release-notes.md
+            dist/homebrew/**
+            dist/scoop/**
+            dist/winget/**
+          retention-days: 30
+          if-no-files-found: error
+
+  verify:
+    name: verify (${{ matrix.os }}/${{ matrix.arch }})
+    needs: [preflight, assemble]
+    # Explicit condition: the signing jobs upstream may be skipped, and a job
+    # without its own condition would be skipped along with them.
+    if: ${{ !cancelled() && needs.preflight.result == 'success' && needs.assemble.result == 'success' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { runner: ubuntu-24.04, os: linux, arch: amd64 }
+          - { runner: ubuntu-24.04-arm, os: linux, arch: arm64 }
+          - { runner: macos-15-intel, os: darwin, arch: amd64 }
+          - { runner: macos-15, os: darwin, arch: arm64 }
+          - { runner: windows-2025, os: windows, arch: amd64 }
+          - { runner: windows-11-arm, os: windows, arch: arm64 }
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-dist
+          path: dist
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: previous-packages
+          path: previous
+      - name: Smoke test (macOS)
+        if: matrix.os == 'darwin'
+        run: release/smoke.sh --dist dist --version "${{ needs.preflight.outputs.version }}" --os darwin --arch "${{ matrix.arch }}" ${{ needs.preflight.outputs.allow_unsigned == 'true' && '--allow-unsigned' || '' }}
+      - name: Smoke test (Linux, packages, upgrade from previous, containers)
+        if: matrix.os == 'linux'
+        run: release/smoke.sh --dist dist --version "${{ needs.preflight.outputs.version }}" --os linux --arch "${{ matrix.arch }}" --containers ${{ needs.preflight.outputs.previous_tag != '' && '--previous previous' || '' }}
+      - name: Smoke test (Windows)
+        if: matrix.os == 'windows'
+        shell: pwsh
+        run: release/smoke.ps1 -Dist dist -Version "${{ needs.preflight.outputs.version }}" -Architecture "${{ matrix.arch }}" ${{ (needs.preflight.outputs.allow_unsigned == 'true' || needs.preflight.outputs.unsigned_windows == 'true') && '-AllowUnsigned' || '' }}
+      - name: Validate WinGet manifests (as they will be submitted)
+        if: matrix.os == 'windows' && matrix.arch == 'amd64'
+        shell: pwsh
+        run: |
+          if (-not (Get-Command winget -ErrorAction SilentlyContinue)) { Write-Host 'note: winget is not available on this runner; manifest validation skipped'; exit 0 }
+          $src = Get-ChildItem -Directory -Recurse dist/winget/manifests | Where-Object { $_.Name -eq '${{ needs.preflight.outputs.version }}' } | Select-Object -First 1
+          $dst = Join-Path $env:RUNNER_TEMP 'winget-manifests'
+          New-Item -ItemType Directory -Path $dst -Force | Out-Null
+          # publish-winget.sh drops GoReleaser's leading comment so the schema header is line 1.
+          foreach ($f in Get-ChildItem $src.FullName -Filter *.yaml) {
+            Get-Content $f.FullName | Where-Object { $_ -notmatch '^# This file was generated by GoReleaser' } | Set-Content (Join-Path $dst $f.Name)
+          }
+          $output = & winget validate --manifest $dst 2>&1 | Out-String
+          Write-Host $output
+          # winget exits non-zero on warnings; the message is authoritative.
+          if ($output -notmatch 'Manifest validation succeeded') { throw 'winget validate did not succeed' }
+          exit 0
+
+  publish:
+    name: publish release
+    needs: [preflight, verify]
+    if: ${{ !cancelled() && needs.preflight.result == 'success' && needs.verify.result == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    outputs:
+      url: ${{ steps.publish.outputs.url }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-dist
+          path: dist
+      - name: Mint write token for the release repository
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ env.PURLVIEW_RELEASE_REPOSITORY }}
+          permission-contents: write
+      - name: Draft release and upload assets
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: >-
+          release/publish.sh --phase draft
+          --tag "${{ needs.preflight.outputs.tag }}" --dist dist
+          --repository "${{ needs.preflight.outputs.release_repository }}"
+          --notes dist/release-notes.md
+          ${{ needs.preflight.outputs.prerelease == 'true' && '--prerelease' || '' }}
+      # GitHub stores attestations for public repositories (and for private
+      # ones only on some plans). The attestation is required once this
+      # repository is public and advisory while it is private; the Sigstore
+      # bundle on checksums.txt is published either way.
+      - name: Build provenance attestation for the exact downloadable files
+        id: attest
+        continue-on-error: ${{ github.event.repository.private }}
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            dist/*.tar.gz
+            dist/*.zip
+            dist/*.deb
+            dist/*.rpm
+            dist/checksums.txt
+      - name: Attestation outcome
+        env:
+          OUTCOME: ${{ steps.attest.outcome }}
+        run: |
+          echo "attestation step outcome: $OUTCOME"
+          if [ "$OUTCOME" != success ]; then
+            echo "::warning::Build provenance attestation was not recorded (GitHub stores attestations for public repositories). checksums.txt.sigstore.json remains the verifiable provenance."
+          fi
+      - name: Publish the release (becomes immutable where enabled)
+        id: publish
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: >-
+          release/publish.sh --phase publish
+          --tag "${{ needs.preflight.outputs.tag }}" --dist dist
+          --repository "${{ needs.preflight.outputs.release_repository }}"
+          --notes dist/release-notes.md
+          ${{ needs.preflight.outputs.prerelease == 'true' && '--prerelease' || '' }}
+      - name: Summary
+        run: |
+          {
+            echo "## Released ${{ needs.preflight.outputs.tag }}"
+            echo
+            echo "- Release: ${{ steps.publish.outputs.url }}"
+            echo "- Immutable: ${{ steps.publish.outputs.immutable }}"
+            echo "- Build provenance attestation: ${{ steps.attest.outcome }} (Sigstore bundle on checksums.txt is always published)"
+            echo "- Native signatures: macOS=${{ needs.preflight.outputs.sign_macos }} Windows=${{ needs.preflight.outputs.sign_windows }} (unsigned rehearsal: ${{ needs.preflight.outputs.allow_unsigned }}, Windows published unsigned: ${{ needs.preflight.outputs.unsigned_windows }})"
+            echo "- Package channels: ${{ needs.preflight.outputs.publish_channels == 'true' && 'updating' || 'skipped (private release repository, prerelease, or unsigned)' }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  distribute-homebrew:
+    name: distribute (Homebrew tap)
+    needs: [preflight, publish]
+    if: ${{ !cancelled() && needs.publish.result == 'success' && needs.preflight.outputs.publish_channels == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: release
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-dist
+          path: dist
+      - id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ vars.PURLVIEW_TAP_REPOSITORY || 'homebrew-tap' }}
+          permission-contents: write
+      - env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: >-
+          release/publish-manifest.sh
+          --repository "${{ github.repository_owner }}/${{ vars.PURLVIEW_TAP_REPOSITORY || 'homebrew-tap' }}"
+          --path Casks/purlview.rb --file dist/homebrew/Casks/purlview.rb
+          --version "${{ needs.preflight.outputs.version }}"
+          --message "purlview ${{ needs.preflight.outputs.tag }}"
+
+  distribute-scoop:
+    name: distribute (Scoop bucket)
+    needs: [preflight, publish]
+    if: ${{ !cancelled() && needs.publish.result == 'success' && needs.preflight.outputs.publish_channels == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: release
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-dist
+          path: dist
+      - id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ vars.PURLVIEW_SCOOP_REPOSITORY || 'scoop-bucket' }}
+          permission-contents: write
+      - env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: >-
+          release/publish-manifest.sh
+          --repository "${{ github.repository_owner }}/${{ vars.PURLVIEW_SCOOP_REPOSITORY || 'scoop-bucket' }}"
+          --path purlview.json --file dist/scoop/purlview.json
+          --version "${{ needs.preflight.outputs.version }}"
+          --message "purlview ${{ needs.preflight.outputs.tag }}"
+
+  # Signed APT and DNF repositories at pkg.purlview.com. A stable release
+  # enters the stable and prerelease suites, a prerelease only the prerelease
+  # suite, so a prerelease exercises the whole path without reaching users of
+  # the stable suite. Skipped while the publisher role is not configured.
+  distribute-packages:
+    name: distribute (APT and DNF repositories)
+    needs: [preflight, publish]
+    if: ${{ !cancelled() && needs.publish.result == 'success' && needs.preflight.outputs.publish_packages == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-dist
+          path: dist
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        with:
+          cosign-release: v3.1.3
+      - name: Verify the release checksums
+        run: |
+          cosign verify-blob \
+            --certificate-identity "https://github.com/${GITHUB_REPOSITORY}/.github/workflows/release.yml@refs/tags/${{ needs.preflight.outputs.tag }}" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            --bundle dist/checksums.txt.sigstore.json dist/checksums.txt
+      - name: Install repository tools
+        run: |
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq dpkg-dev apt-utils rpm createrepo-c gnupg
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.PURLVIEW_PACKAGES_ROLE_ARN }}
+          aws-region: ${{ vars.PURLVIEW_PACKAGES_AWS_REGION }}
+          role-session-name: purlview-packages-${{ github.run_id }}
+      - name: Add the packages and publish the repositories
+        env:
+          BUCKET: ${{ vars.PURLVIEW_PACKAGES_BUCKET }}
+          SIGNING_SECRET: ${{ vars.PURLVIEW_PACKAGE_SIGNING_SECRET_ID }}
+          FINGERPRINT: ${{ vars.PURLVIEW_PACKAGE_SIGNING_FINGERPRINT }}
+          VERSION: ${{ needs.preflight.outputs.version }}
+        run: |
+          [[ "$BUCKET" =~ ^[a-z0-9.-]+$ ]] || { echo "PURLVIEW_PACKAGES_BUCKET is not a bucket name"; exit 1; }
+          [[ -n "$SIGNING_SECRET" ]] || { echo "PURLVIEW_PACKAGE_SIGNING_SECRET_ID is not set"; exit 1; }
+          [[ "$FINGERPRINT" =~ ^[0-9A-F]{40}$ ]] || { echo "PURLVIEW_PACKAGE_SIGNING_FINGERPRINT must be 40 upper-case hex digits"; exit 1; }
+          test -f release/packages/purlview.asc || { echo "release/packages/purlview.asc is missing at this tag"; exit 1; }
+          export GNUPGHOME="$RUNNER_TEMP/gnupg"
+          install -d -m 0700 "$GNUPGHOME"
+          trap 'gpgconf --kill all >/dev/null 2>&1 || true; rm -rf "$GNUPGHOME"' EXIT
+          aws secretsmanager get-secret-value --secret-id "$SIGNING_SECRET" --query SecretString --output text \
+            | gpg --batch --quiet --import
+          aws s3 sync "s3://$BUCKET" "$RUNNER_TEMP/repo" --only-show-errors
+          release/package-repository.sh --dist dist --version "$VERSION" --repo "$RUNNER_TEMP/repo" \
+            --public-key release/packages/purlview.asc --fingerprint "$FINGERPRINT" --publish "s3://$BUCKET"
+      - name: Install from pkg.purlview.com
+        env:
+          VERSION: ${{ needs.preflight.outputs.version }}
+          SUITE: ${{ needs.preflight.outputs.prerelease == 'true' && 'prerelease' || 'stable' }}
+        run: |
+          # Indexes are cached for a minute; retry until the new version is visible.
+          for attempt in 1 2 3 4 5 6; do
+            if docker run --rm -e VERSION -e SUITE debian:12 bash -euo pipefail -c '
+                apt-get update -qq >/dev/null && apt-get install -y -qq curl ca-certificates >/dev/null
+                curl -fsSL https://pkg.purlview.com/purlview-archive-keyring.gpg -o /usr/share/keyrings/purlview-archive-keyring.gpg
+                curl -fsSL "https://pkg.purlview.com/deb/purlview-$SUITE.sources" -o /etc/apt/sources.list.d/purlview.sources
+                apt-get update -qq >/dev/null && apt-get install -y -qq purlview >/dev/null
+                purlview --version | head -n1 | grep -qx "purlview $VERSION"' \
+              && docker run --rm -e VERSION -e SUITE fedora:41 bash -euo pipefail -c '
+                curl -fsSL "https://pkg.purlview.com/rpm/purlview-$SUITE.repo" -o /etc/yum.repos.d/purlview.repo
+                dnf install -y -q purlview >/dev/null
+                purlview --version | head -n1 | grep -qx "purlview $VERSION"'; then
+              echo "apt and dnf install purlview $VERSION from the $SUITE suite"; exit 0
+            fi
+            echo "attempt $attempt: $VERSION not installable yet"; sleep 30
+          done
+          exit 1
+
+  distribute-winget:
+    name: distribute (WinGet pull request)
+    needs: [preflight, publish]
+    if: ${{ !cancelled() && needs.publish.result == 'success' && needs.preflight.outputs.publish_winget == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: release
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-dist
+          path: dist
+      - name: Submit to microsoft/winget-pkgs (community review is asynchronous)
+        env:
+          GH_TOKEN: ${{ secrets.WINGET_SUBMIT_TOKEN }}
+        run: |
+          [ -n "$GH_TOKEN" ] || { echo "WINGET_SUBMIT_TOKEN is not configured; see docs/releasing.md"; exit 1; }
+          release/publish-winget.sh --fork "${{ vars.PURLVIEW_WINGET_FORK }}" --manifests dist/winget/manifests \
+            --identifier IdylLabs.Purlview --version "${{ needs.preflight.outputs.version }}"

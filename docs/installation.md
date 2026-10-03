@@ -247,10 +247,12 @@ file came from that workflow at that tag.
 
 ```sh
 cosign verify-blob \
-  --certificate-identity "https://github.com/idyl-labs/purlview-platform/.github/workflows/release.yml@refs/tags/v<version>" \
+  --certificate-identity "https://github.com/idyl-labs/purlview/.github/workflows/release.yml@refs/tags/v<version>" \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
   --bundle checksums.txt.sigstore.json checksums.txt
 ```
+
+[releasing.md](releasing.md) describes how releases are built and signed.
 
 macOS executables are signed with a Developer ID certificate (team
 `2B6R3TC7HJ`) and notarized; Windows executables carry a timestamped

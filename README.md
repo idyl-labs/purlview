@@ -15,8 +15,8 @@ purlview share 5173 8000                  # a front end and its API, on one link
 
 This repository holds the `purlview` command-line interface, the per-user
 daemon that serves your shares, the Go SDK for Purlview's account API, and
-the installer scripts. Releases are published at
-[idyl-labs/purlview-releases](https://github.com/idyl-labs/purlview-releases).
+the installer scripts. Releases are built from this repository and published
+at [idyl-labs/purlview-releases](https://github.com/idyl-labs/purlview-releases).
 
 ## Install
 
@@ -50,6 +50,8 @@ hour. Each share has its own key; its private half never leaves the daemon.
   version and how updating works.
 - [sdk/README.md](sdk/README.md): the Go SDK and version 1 of the account
   API.
+- [docs/releasing.md](docs/releasing.md): how releases are built, signed and
+  published, and how to verify one.
 
 ## Layout
 
@@ -61,9 +63,10 @@ hour. Each share has its own key; its private half never leaves the daemon.
 | `internal/share`, `internal/share/engine` | Share requests and the daemon's share engine. |
 | `internal/tunnel` | Docking a share on the edge and serving its targets. |
 | `internal/scenario`, `internal/testplatform` | The scenario runner's fake world and the fake platform for integration tests. |
-| `internal/tools` | The scenario runner and the generator of completions and manual pages. |
+| `internal/tools` | The scenario runner, the generator of completions and manual pages, and the release build's helpers. |
 | `sdk/` | The Go SDK: `api`, `resource`, `purlview` (client) and `apiserver` (server binding). |
 | `install/` | `install.sh`, `install.ps1` and their end-to-end tests. |
+| `release/`, `.goreleaser.yaml` | The release build, signing, smoke tests and publication scripts. |
 
 ## Build from source
 
