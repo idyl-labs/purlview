@@ -244,11 +244,7 @@ func TestShVerifiesTheSigstoreSignatureWhenCosignIsInstalled(t *testing.T) {
 	rel := markerFixture(t, "0.9.2")
 	signed := markerFixture(t, "0.9.3")
 	signed.bundle = "{}"
-	// One of the closed list of releases signed by another repository's
-	// release workflow.
-	earlier := markerFixture(t, "0.2.1")
-	earlier.bundle = "{}"
-	srv := newReleaseServer(t, rel, signed, earlier)
+	srv := newReleaseServer(t, rel, signed)
 
 	// A cosign that records its arguments and exits as COSIGN_EXIT says.
 	tools := t.TempDir()
@@ -290,7 +286,7 @@ func TestShVerifiesTheSigstoreSignatureWhenCosignIsInstalled(t *testing.T) {
 	r, _ = run("v0.9.3", "0", true)
 	asked, _ := os.ReadFile(calls)
 	if !r.contains("checksums.txt signature verified with cosign") ||
-		!strings.Contains(string(asked), "--certificate-identity https://github.com/idyl-labs/purlview-platform/.github/workflows/release.yml@refs/tags/v0.9.3 --certificate-oidc-issuer https://token.actions.githubusercontent.com") {
+		!strings.Contains(string(asked), "--certificate-identity https://github.com/idyl-labs/purlview/.github/workflows/release.yml@refs/tags/v0.9.3 --certificate-oidc-issuer https://token.actions.githubusercontent.com") {
 		t.Fatalf("cosign was not asked for the release workflow's identity: %q", asked)
 	}
 	if runtime.GOOS == "darwin" {

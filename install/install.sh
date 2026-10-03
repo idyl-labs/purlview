@@ -38,8 +38,6 @@
 #   PURLVIEW_INSTALL_DIR       default destination (default: $HOME/.local/bin)
 #   PURLVIEW_VERSION           default version
 #   PURLVIEW_NO_MODIFY_PATH    1: never add DEST to PATH (as --no-modify-path)
-#   PURLVIEW_SOURCE_REPOSITORY GitHub owner/name whose release workflow signs
-#                               checksums.txt (default: idyl-labs/purlview-platform)
 #   PURLVIEW_VERIFY_PUBLISHER  1: check signatures of a release served from
 #                               the loopback interface too (installer tests)
 set -eu
@@ -50,7 +48,8 @@ set -eu
 main() {
 
 RELEASE_BASE_URL="${PURLVIEW_RELEASE_BASE_URL:-https://github.com/idyl-labs/purlview-releases}"
-SOURCE_REPOSITORY="${PURLVIEW_SOURCE_REPOSITORY:-idyl-labs/purlview-platform}"
+# The repository whose release workflow signs checksums.txt (Sigstore).
+SOURCE_REPOSITORY=idyl-labs/purlview
 # The Apple Developer ID team that signs Purlview's macOS executables.
 APPLE_TEAM_ID=2B6R3TC7HJ
 DEST="${PURLVIEW_INSTALL_DIR:-$HOME/.local/bin}"
