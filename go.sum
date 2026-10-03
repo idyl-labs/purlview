@@ -6,8 +6,8 @@ github.com/go-jose/go-jose/v4 v4.1.4 h1:moDMcTHmvE6Groj34emNPLs/qtYXRVcd6S7NHbHz
 github.com/go-jose/go-jose/v4 v4.1.4/go.mod h1:x4oUasVrzR7071A4TnHLGSPpNOm2a21K9Kf04k1rs08=
 github.com/google/go-cmp v0.7.0 h1:wk8382ETsv4JYUZwIsn6YpYiWiBsYLSJiTsyBybVuN8=
 github.com/google/go-cmp v0.7.0/go.mod h1:pXiqmnSA92OHEEa9HXL2W4E7lf9JzCmGVUdgjX3N/iU=
-github.com/idyl-labs/hyperplane-go v0.0.0-20261003122850-2f47ef13d9f0 h1:LGMZP9mJHvSWbP11vm4Gc7s9yZ90dvqBXzKh9gffrVw=
-github.com/idyl-labs/hyperplane-go v0.0.0-20261003122850-2f47ef13d9f0/go.mod h1:hm1QFlVCx5By+hDKvdWbc9rDmpIpNVZselXD5OiUXKs=
+github.com/idyl-labs/hyperplane-go v0.0.0-20261003165645-2f5a473d6ef7 h1:pP1Lpg3ibCOyPu1JSkf6fmk6NxQljW5ifrSVDwSO/xA=
+github.com/idyl-labs/hyperplane-go v0.0.0-20261003165645-2f5a473d6ef7/go.mod h1:hm1QFlVCx5By+hDKvdWbc9rDmpIpNVZselXD5OiUXKs=
 github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2s0bqwp9tc8=
 github.com/inconshreveable/mousetrap v1.1.0/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLfsEA9PFc4w1p2J65bw=
 github.com/quic-go/go-ossfuzz-seeds v0.1.0 h1:APacT+iIaNF6fd8AGEiN3bT/Jtkd2jz4v4TzM7MFjy0=
