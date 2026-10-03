@@ -1,0 +1,118 @@
+name: Release snapshot
+
+# Builds the complete release artifact set the way the release workflow does,
+# but as a snapshot: no credentials, no native signing, no Sigstore signature
+# and nothing published. Then runs the release smoke tests on the Linux
+# artifacts (archives, deb and rpm packages, and an Alpine container). Runs
+# when a change touches the release definition, its helpers or the code they
+# build into the artifacts' metadata.
+on:
+  pull_request:
+    paths:
+      - .goreleaser.yaml
+      - .github/workflows/release.yml
+      - .github/workflows/release-snapshot.yml
+      - release/**
+      - internal/tools/applysigned/**
+      - internal/tools/gendocs/**
+      - internal/tools/semvercmp/**
+      - internal/buildinfo/**
+      - internal/updatecheck/**
+      - go.mod
+      - go.sum
+  push:
+    branches: [main]
+    paths:
+      - .goreleaser.yaml
+      - .github/workflows/release.yml
+      - .github/workflows/release-snapshot.yml
+      - release/**
+      - internal/tools/applysigned/**
+      - internal/tools/gendocs/**
+      - internal/tools/semvercmp/**
+      - internal/buildinfo/**
+      - internal/updatecheck/**
+      - go.mod
+      - go.sum
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-snapshot-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  GOTOOLCHAIN: local
+  GOFLAGS: -mod=readonly
+
+jobs:
+  snapshot:
+    name: snapshot artifacts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - uses: anchore/sbom-action/download-syft@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
+        with:
+          syft-version: v1.51.1
+      - name: GoReleaser snapshot (no credentials, no publishing, no signing)
+        uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
+        with:
+          distribution: goreleaser
+          version: v2.18.1
+          args: release --snapshot --clean --skip=publish,sign
+      - name: Every target and package was built
+        run: |
+          set -euo pipefail
+          v="$(jq -r .version dist/metadata.json)"
+          for t in darwin_amd64 darwin_arm64 linux_amd64 linux_arm64; do test -f "dist/purlview_${v}_${t}.tar.gz"; done
+          for t in windows_amd64 windows_arm64; do test -f "dist/purlview_${v}_${t}.zip"; done
+          for a in amd64 arm64; do test -f "dist/purlview_${v}_linux_${a}.deb"; test -f "dist/purlview_${v}_linux_${a}.rpm"; done
+          test "$(find dist -maxdepth 1 -name '*.sbom.json' | wc -l)" -eq 10
+          test -f dist/homebrew/Casks/purlview.rb
+          test -f dist/scoop/purlview.json
+          test -n "$(find dist/winget -name '*.yaml')"
+          (cd dist && sha256sum -c checksums.txt)
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: snapshot-dist
+          path: |
+            dist/*.tar.gz
+            dist/*.zip
+            dist/*.deb
+            dist/*.rpm
+            dist/*.sbom.json
+            dist/checksums.txt
+            dist/metadata.json
+            dist/homebrew/**
+            dist/scoop/**
+            dist/winget/**
+          retention-days: 7
+          if-no-files-found: error
+
+  smoke:
+    name: smoke (linux/${{ matrix.arch }})
+    needs: snapshot
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { arch: amd64, runner: ubuntu-24.04 }
+          - { arch: arm64, runner: ubuntu-24.04-arm }
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: snapshot-dist
+          path: dist
+      - name: Smoke test (archive, native packages and containers)
+        run: release/smoke.sh --dist dist --version "$(jq -r .version dist/metadata.json)" --os linux --arch "${{ matrix.arch }}" --containers
