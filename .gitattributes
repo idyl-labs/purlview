@@ -1,0 +1,4 @@
+# Every text file is checked out with LF line endings on every platform, so
+# gofmt, the scripts and the generated transcripts read the same bytes
+# everywhere.
+* text=auto eol=lf
