@@ -85,7 +85,7 @@ nfpms:
     file_name_template: "{{ .PackageName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     vendor: Idyl Labs
     homepage: https://purlview.com
-    maintainer: Idyl Labs <support@idyl.network>
+    maintainer: Idyl Labs <support@idyl.dev>
     license: Apache-2.0
     description: |-
       Share your running app. Improve it together.
