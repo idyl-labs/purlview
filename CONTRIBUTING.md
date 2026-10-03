@@ -59,7 +59,7 @@ prints:
 
 ```sh
 go test ./internal/command -run TestGoldens -update   # rewrites testdata/golden
-go run ./internal/tools/scenario doc -write docs/cli-scenarios.md
+go run ./internal/tools/scenario doc -write internal/scenario/testdata/transcripts.md
 ```
 
 and commit the regenerated files with the change. `go test ./...` fails when

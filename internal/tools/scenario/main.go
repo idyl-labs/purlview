@@ -4,7 +4,7 @@
 //	go run ./internal/tools/scenario list
 //	go run ./internal/tools/scenario run <name>...
 //	go run ./internal/tools/scenario run --all
-//	go run ./internal/tools/scenario doc [-write docs/cli-scenarios.md]
+//	go run ./internal/tools/scenario doc [-write internal/scenario/testdata/transcripts.md]
 //
 // Every scenario runs the real command handlers in-process against
 // controlled fixtures (SCENARIO MODE): synthetic identities, reserved

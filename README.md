@@ -48,8 +48,6 @@ hour. Each share has its own key; its private half never leaves the daemon.
   control protocol, its files, and the update check.
 - [docs/updates.md](docs/updates.md): how Purlview tells you about a new
   version and how updating works.
-- [docs/cli-scenarios.md](docs/cli-scenarios.md): generated transcripts of
-  every command against a fake platform.
 - [sdk/README.md](sdk/README.md): the Go SDK and version 1 of the account
   API.
 
