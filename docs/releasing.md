@@ -206,9 +206,9 @@ release/smoke.sh --dist dist --version "$(jq -r .version dist/metadata.json)" --
 
 The `Release snapshot` workflow does the same, with the Linux package and
 container checks, for every pull request that changes the release definition.
-`release/test-package-repository.sh --dist dist --version <version>` builds
-the APT and DNF repositories from a snapshot with a throwaway key and installs
-from them in containers.
+`release/test-package-repository.sh --dist <dir> --version <version>` builds
+the APT and DNF repositories from a release's packages with a throwaway key
+and installs from them with apt and dnf in containers.
 
 ## When something fails
 
