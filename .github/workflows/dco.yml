@@ -1,0 +1,44 @@
+name: DCO
+
+# Every commit in a pull request must carry a Signed-off-by line from its
+# author, certifying the Developer Certificate of Origin (CONTRIBUTING.md).
+on:
+  pull_request:
+  merge_group:
+
+permissions:
+  contents: read
+
+jobs:
+  dco:
+    name: sign-off
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Every commit is signed off by its author
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+          HEAD: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+        run: |
+          set -euo pipefail
+          failed=0
+          for commit in $(git rev-list --no-merges "$BASE..$HEAD"); do
+            author="$(git show -s --format='%an <%ae>' "$commit")"
+            email="$(git show -s --format='%ae' "$commit" | tr '[:upper:]' '[:lower:]')"
+            subject="$(git show -s --format='%s' "$commit")"
+            signoffs="$(git show -s --format='%(trailers:key=Signed-off-by,valueonly)' "$commit" | tr '[:upper:]' '[:lower:]')"
+            if grep -qF "<$email>" <<<"$signoffs"; then
+              echo "ok    ${commit:0:12} $subject"
+            else
+              echo "::error::${commit:0:12} \"$subject\" has no Signed-off-by line from its author $author"
+              failed=1
+            fi
+          done
+          if [ "$failed" -ne 0 ]; then
+            echo "Add the line with: git commit --amend -s (or git rebase --signoff $BASE), then push again."
+            exit 1
+          fi
