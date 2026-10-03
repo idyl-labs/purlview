@@ -14,15 +14,15 @@ param(
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
-# Picks up what an installer added to the machine or user PATH, keeping
-# what this session already has.
-function Update-SessionPath {
-    $env:Path = $env:Path + ';' + [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' + [Environment]::GetEnvironmentVariable('Path', 'User')
+# Get-SessionPath returns this session's PATH plus what an installer added
+# to the machine or user PATH.
+function Get-SessionPath {
+    $env:Path + ';' + [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' + [Environment]::GetEnvironmentVariable('Path', 'User')
 }
 
-# Assert-UserPathHolds checks the registry's user Path holds $Dir exactly
+# Assert-UserPathEntry checks the registry's user Path holds $Dir exactly
 # $Times times, is still REG_EXPAND_SZ, and the machine Path doesn't hold it.
-function Assert-UserPathHolds([string] $Dir, [int] $Times) {
+function Assert-UserPathEntry([string] $Dir, [int] $Times) {
     $key = Get-Item HKCU:\Environment
     $raw = $key.GetValue('Path', '', 'DoNotExpandEnvironmentNames')
     $count = @($raw -split ';' | Where-Object { [Environment]::ExpandEnvironmentVariables($_).TrimEnd('\') -ieq $Dir }).Count
@@ -44,19 +44,19 @@ switch ($Method) {
         Write-Output 'ok   runs in the installing window with no manual step'
         # A new terminal reads PATH from the registry: the user Path holds the
         # folder once, still expandable; the machine Path is untouched.
-        Assert-UserPathHolds (Split-Path $exe) 1
+        Assert-UserPathEntry (Split-Path $exe) 1
         $env:Path = [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' + [Environment]::GetEnvironmentVariable('Path', 'User')
         if ((Get-Command purlview -ErrorAction SilentlyContinue).Source -ne $exe) { throw 'a new terminal does not find purlview' }
         Write-Output 'ok   a new terminal finds purlview'
         pwsh -NoProfile -Command 'irm https://purlview.com/install.ps1 | iex' | Out-Null
-        Assert-UserPathHolds (Split-Path $exe) 1
+        Assert-UserPathEntry (Split-Path $exe) 1
         Write-Output 'ok   a second install leaves one Path entry'
     }
     'scoop' {
         # Scoop itself first, as a person without it would. CI runners are
         # administrators, which Scoop's installer refuses without the flag.
         & ([scriptblock]::Create((Invoke-RestMethod https://get.scoop.sh))) -RunAsAdmin
-        Update-SessionPath
+        $env:Path = Get-SessionPath
         scoop bucket add idyl-labs https://github.com/idyl-labs/scoop-bucket
         scoop install purlview
     }
@@ -72,7 +72,7 @@ switch ($Method) {
         if ($LASTEXITCODE -ne 0) { throw "winget install IdylLabs.Purlview exited $LASTEXITCODE" }
     }
 }
-Update-SessionPath
+$env:Path = Get-SessionPath
 
 $bin = Get-Command purlview -ErrorAction SilentlyContinue
 if (-not $bin) { throw "purlview is not on PATH after the $Method install" }
@@ -92,7 +92,7 @@ Write-Output 'ok   runs and asks for a sign-in'
 if ($Method -eq 'script') {
     pwsh -NoProfile -Command '& ([scriptblock]::Create((irm https://purlview.com/install.ps1))) -Uninstall'
     if ($LASTEXITCODE -ne 0) { throw "install.ps1 -Uninstall exited $LASTEXITCODE" }
-    Assert-UserPathHolds (Join-Path $env:LOCALAPPDATA 'Programs\purlview') 0
+    Assert-UserPathEntry (Join-Path $env:LOCALAPPDATA 'Programs\purlview') 0
     Write-Output 'ok   -Uninstall removes the Path entry'
 }
 exit 0
