@@ -26,8 +26,11 @@ before:
     - go mod verify
     # Release helpers are compiled with the host toolchain so build hooks do
     # not depend on `go run` under a cross-compilation environment.
-    - go build -trimpath -o build/tools/ ./internal/tools/gendocs ./internal/tools/applysigned
+    - go build -trimpath -o build/tools/ ./internal/tools/gendocs ./internal/tools/applysigned ./internal/tools/notices
     - build/tools/gendocs -out build/generated -version {{ .Version }} -date {{ .CommitDate }}
+    # Every archive and package ships THIRD_PARTY_NOTICES; refuse to build
+    # one whose notices do not match the modules it links.
+    - build/tools/notices -check THIRD_PARTY_NOTICES
 
 builds:
   - id: purlview
@@ -71,6 +74,7 @@ archives:
     files:
       - LICENSE
       - NOTICE
+      - THIRD_PARTY_NOTICES
       - src: build/generated/completions/*
         dst: completions
         strip_parent: true
@@ -107,12 +111,13 @@ nfpms:
         dst: /usr/share/fish/vendor_completions.d/purlview.fish
       - src: build/generated/man-gz/*.1.gz
         dst: /usr/share/man/man1/
+      # Plain files, not `type: doc`: nfpm leaves doc-typed files out of a deb.
       - src: LICENSE
         dst: /usr/share/doc/purlview/LICENSE
-        type: doc
       - src: NOTICE
         dst: /usr/share/doc/purlview/NOTICE
-        type: doc
+      - src: THIRD_PARTY_NOTICES
+        dst: /usr/share/doc/purlview/THIRD_PARTY_NOTICES
     rpm:
       summary: Share your running app and improve it together
     deb:

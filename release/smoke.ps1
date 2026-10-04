@@ -72,7 +72,7 @@ $work = Join-Path ([System.IO.Path]::GetTempPath()) ("purlview-smoke-" + [System
 New-Item -ItemType Directory -Path $work | Out-Null
 try {
     Expand-Archive -LiteralPath $archivePath -DestinationPath $work -Force
-    foreach ($f in 'purlview.exe', 'completions\purlview.ps1', 'completions\purlview.bash', 'man\purlview.1') {
+    foreach ($f in 'purlview.exe', 'LICENSE', 'NOTICE', 'THIRD_PARTY_NOTICES', 'completions\purlview.ps1', 'completions\purlview.bash', 'man\purlview.1') {
         if (Test-Path -LiteralPath (Join-Path $work $f)) { Pass "archive contains $f" } else { Fail "archive missing $f" }
     }
     $exe = Join-Path $work 'purlview.exe'

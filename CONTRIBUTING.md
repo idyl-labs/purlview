@@ -68,6 +68,19 @@ and commit the regenerated files with the change. `go test ./...` fails when
 either is stale. `go run ./internal/tools/scenario list` and
 `go run ./internal/tools/scenario run <name>` run single scenarios.
 
+### Third-party notices
+
+`THIRD_PARTY_NOTICES` holds the licence and notice files of the Go runtime
+and of every module linked into `purlview`, and ships in every archive and
+package. When you add, remove or update a dependency:
+
+```sh
+go run ./internal/tools/notices -write THIRD_PARTY_NOTICES
+```
+
+and commit the result with the change. CI and the release build fail when
+it is stale.
+
 ### The SDK's wire examples
 
 `sdk/api/testdata` holds the serialised examples of the account API. Every

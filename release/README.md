@@ -26,3 +26,4 @@ The Go helpers live with the other tools:
 | `internal/tools/applysigned` | GoReleaser post-build hook that swaps in natively signed binaries after a rebuild hash check |
 | `internal/tools/semvercmp` | SemVer comparison for the scripts, prerelease-aware; shares `internal/semver` with the CLI's update check |
 | `internal/tools/gendocs` | shell completions and manual pages for the archives and packages |
+| `internal/tools/notices` | `THIRD_PARTY_NOTICES` from the modules linked into the executable; the release build refuses a stale one |

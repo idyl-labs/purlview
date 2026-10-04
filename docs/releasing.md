@@ -23,9 +23,9 @@ For version `<version>` (no leading `v`):
 
 | File | Contents |
 | --- | --- |
-| `purlview_<version>_<os>_<arch>.tar.gz` | macOS and Linux archives: the executable, `LICENSE`, `NOTICE`, shell completions and manual pages |
+| `purlview_<version>_<os>_<arch>.tar.gz` | macOS and Linux archives: the executable, `LICENSE`, `NOTICE`, `THIRD_PARTY_NOTICES`, shell completions and manual pages |
 | `purlview_<version>_windows_<arch>.zip` | Windows archives, with the same contents |
-| `purlview_<version>_linux_<arch>.deb`, `.rpm` | Linux packages |
+| `purlview_<version>_linux_<arch>.deb`, `.rpm` | Linux packages, with `LICENSE`, `NOTICE` and `THIRD_PARTY_NOTICES` in `/usr/share/doc/purlview/` |
 | `<artifact>.sbom.json` | an SPDX software bill of materials for each archive and package |
 | `checksums.txt` | SHA-256 of every archive and package |
 | `checksums.txt.sigstore.json` | keyless Sigstore signature of `checksums.txt` by the release workflow |

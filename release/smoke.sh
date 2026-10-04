@@ -234,7 +234,7 @@ else
 echo "== archive =="
 mkdir -p "$WORK/archive"
 tar -xzf "$ARCHIVE" -C "$WORK/archive"
-for f in purlview completions/purlview.bash completions/_purlview completions/purlview.fish completions/purlview.ps1 man/purlview.1; do
+for f in purlview LICENSE NOTICE THIRD_PARTY_NOTICES completions/purlview.bash completions/_purlview completions/purlview.fish completions/purlview.ps1 man/purlview.1; do
   check "archive contains $f" test -f "$WORK/archive/$f"
 done
 check "archive binary is executable" test -x "$WORK/archive/purlview"
@@ -289,7 +289,7 @@ deb_checks() { # runs on a Debian-family host as root
   fi
   if dpkg -i "$DEB" >/dev/null; then pass "deb: installed ($(dpkg-query -W -f='${Version}' purlview))"; else fail "deb: install"; fi
   check_binary /usr/bin/purlview "deb"
-  for f in /usr/share/bash-completion/completions/purlview /usr/share/zsh/vendor-completions/_purlview /usr/share/fish/vendor_completions.d/purlview.fish /usr/share/man/man1/purlview.1.gz; do
+  for f in /usr/share/bash-completion/completions/purlview /usr/share/zsh/vendor-completions/_purlview /usr/share/fish/vendor_completions.d/purlview.fish /usr/share/man/man1/purlview.1.gz /usr/share/doc/purlview/THIRD_PARTY_NOTICES; do
     check "deb: package ships $f" sh -c "dpkg-deb -c '$DEB' | grep -q ' \\.$f\$'"
     # Minimized images exclude documentation paths through dpkg path-exclude.
     if [ -f "$f" ]; then pass "deb: $f installed"; elif grep -qs '^path-exclude' /etc/dpkg/dpkg.cfg.d/* 2>/dev/null; then note "deb: $f excluded by this image's dpkg configuration"; else fail "deb: missing $f"; fi
@@ -307,7 +307,7 @@ rpm_checks() { # runs on a Fedora-family host as root
     if rpm -i "$RPM"; then pass "rpm: installed ($(rpm -q purlview))"; else fail "rpm: install"; fi
   fi
   check_binary /usr/bin/purlview "rpm"
-  for f in /usr/share/bash-completion/completions/purlview /usr/share/zsh/site-functions/_purlview /usr/share/fish/vendor_completions.d/purlview.fish /usr/share/man/man1/purlview.1.gz; do
+  for f in /usr/share/bash-completion/completions/purlview /usr/share/zsh/site-functions/_purlview /usr/share/fish/vendor_completions.d/purlview.fish /usr/share/man/man1/purlview.1.gz /usr/share/doc/purlview/THIRD_PARTY_NOTICES; do
     check "rpm: package ships $f" sh -c "rpm -qlp '$RPM' | grep -qx '$f'"
     if [ -f "$f" ]; then pass "rpm: $f installed"; elif grep -qs 'nodocs' /etc/dnf/dnf.conf /etc/rpm/macros* 2>/dev/null; then note "rpm: $f excluded by this image's rpm configuration"; else fail "rpm: missing $f"; fi
   done
