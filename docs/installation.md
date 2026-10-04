@@ -245,7 +245,7 @@ published it, because it comes from the same place as the archive.
 
 ```sh
 sha256sum --ignore-missing -c checksums.txt                                    # Linux
-grep purlview_<version>_darwin_arm64.tar.gz checksums.txt | shasum -a 256 -c    # macOS, one file
+shasum -a 256 --ignore-missing -c checksums.txt                                # macOS
 ```
 
 `checksums.txt.sigstore.json` is a keyless Sigstore signature made by
