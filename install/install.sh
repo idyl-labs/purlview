@@ -108,14 +108,41 @@ while [ $# -gt 0 ]; do
   esac
 done
 
+# loopback_authority AUTHORITY: AUTHORITY is exactly 127.0.0.1, localhost or
+# [::1], optionally followed by a numeric port.
+loopback_authority() {
+  case "$1" in
+    127.0.0.1|localhost|'[::1]') return 0 ;;
+    127.0.0.1:*) l_port="${1#127.0.0.1:}" ;;
+    localhost:*) l_port="${1#localhost:}" ;;
+    '[::1]:'*) l_port="${1#'[::1]:'}" ;;
+    *) return 1 ;;
+  esac
+  case "$l_port" in
+    ''|*[!0-9]*) return 1 ;;
+  esac
+  return 0
+}
+
 # Only HTTPS is accepted, except plain HTTP to the loopback interface, which
 # the installer tests use to serve local fixtures. Nothing signs a fixture, so
 # its signatures are checked only when PURLVIEW_VERIFY_PUBLISHER=1 asks.
+# The authority is everything between the scheme and the first slash, and it
+# is compared whole: user information is refused outright, because in
+# http://localhost:80@host.example the host is host.example, and a host that
+# only begins with a loopback name (localhost.example) is not loopback.
 CURL_PROTO='=https'
 VERIFY_PUBLISHER=true
+URL_AUTHORITY="${RELEASE_BASE_URL#*://}"
+URL_AUTHORITY="${URL_AUTHORITY%%/*}"
+case "$URL_AUTHORITY" in
+  *@*) fail "PURLVIEW_RELEASE_BASE_URL must not contain user information, got: $RELEASE_BASE_URL" ;;
+esac
 case "$RELEASE_BASE_URL" in
-  https://*) ;;
-  http://127.0.0.1:*|http://127.0.0.1/*|http://localhost:*|http://localhost/*|http://\[::1\]:*)
+  https://?*) ;;
+  http://*)
+    loopback_authority "$URL_AUTHORITY" \
+      || fail "PURLVIEW_RELEASE_BASE_URL must be an https:// URL (plain http:// only to 127.0.0.1, localhost or [::1]), got: $RELEASE_BASE_URL"
     CURL_PROTO='=https,http'
     [ "${PURLVIEW_VERIFY_PUBLISHER:-}" = 1 ] || VERIFY_PUBLISHER=false ;;
   *) fail "PURLVIEW_RELEASE_BASE_URL must be an https:// URL, got: $RELEASE_BASE_URL" ;;

@@ -14,8 +14,14 @@ import (
 // the script and the executables it starts see a throwaway home directory.
 func runSh(t *testing.T, srv *releaseServer, env map[string]string, args ...string) result {
 	t.Helper()
+	return runShFrom(t, srv.URL, env, args...)
+}
+
+// runShFrom is runSh with PURLVIEW_RELEASE_BASE_URL set to baseURL.
+func runShFrom(t *testing.T, baseURL string, env map[string]string, args ...string) result {
+	t.Helper()
 	cmd := exec.Command("sh", append([]string{"install.sh"}, args...)...)
-	cmd.Env = append(isolatedEnv(t, env), "PURLVIEW_RELEASE_BASE_URL="+srv.URL)
+	cmd.Env = append(isolatedEnv(t, env), "PURLVIEW_RELEASE_BASE_URL="+baseURL)
 	out, err := cmd.CombinedOutput()
 	code := 0
 	if err != nil {
@@ -301,6 +307,61 @@ func TestShVerifiesTheSigstoreSignatureWhenCosignIsInstalled(t *testing.T) {
 	_ = os.Remove(marker)
 	if r, _ = run("v0.9.2", "1", false); r.code != 0 || exists(calls) || !exists(marker) {
 		t.Fatalf("an unchecked fixture must install without cosign: code=%d", r.code)
+	}
+}
+
+// Plain HTTP, and with it unchecked signatures, is allowed only when the
+// URL's host is exactly a loopback name or address. A URL that merely starts
+// with one is refused before anything is downloaded.
+func TestShTakesTheLoopbackExceptionOnlyForLoopbackHosts(t *testing.T) {
+	requireSh(t)
+	env := map[string]string{"PURLVIEW_INSTALL_DIR": t.TempDir(), "PATH": minimalPath()}
+	for _, tc := range []struct{ url, want string }{
+		{"http://localhost:80@attacker.example.invalid", "must not contain user information"},
+		{"http://localhost@attacker.example.invalid", "must not contain user information"},
+		{"http://127.0.0.1:80@attacker.example.invalid/releases", "must not contain user information"},
+		{"http://[::1]:80@attacker.example.invalid", "must not contain user information"},
+		{"https://user:secret@releases.example.invalid", "must not contain user information"},
+		{"http://localhost.attacker.example.invalid", "must be an https:// URL"},
+		{"http://localhost.attacker.example.invalid:80/releases", "must be an https:// URL"},
+		{"http://127.0.0.1.attacker.example.invalid", "must be an https:// URL"},
+		{"http://127.0.0.1.attacker.example.invalid:80", "must be an https:// URL"},
+		{"http://[::1]attacker.example.invalid", "must be an https:// URL"},
+		{"http://[::1].attacker.example.invalid:80", "must be an https:// URL"},
+		{"http://localhost:80x", "must be an https:// URL"},
+		{"http://localhost:", "must be an https:// URL"},
+		{"http://releases.example.invalid", "must be an https:// URL"},
+		{"ftp://localhost", "must be an https:// URL"},
+	} {
+		t.Run(tc.url, func(t *testing.T) {
+			r := runShFrom(t, tc.url, env, "--version", "v0.9.0")
+			if r.code == 0 || !r.contains("PURLVIEW_RELEASE_BASE_URL "+tc.want) {
+				t.Fatalf("%s must be refused with %q: code=%d", tc.url, tc.want, r.code)
+			}
+			if r.contains("downloading") {
+				t.Fatal("the installer contacted a refused URL")
+			}
+		})
+	}
+
+	// Exact loopback hosts, with or without a port, get past the check: the
+	// download is attempted (and fails, as nothing listens on port 1).
+	for _, url := range []string{"http://127.0.0.1:1", "http://localhost:1/", "http://[::1]:1/releases"} {
+		t.Run(url, func(t *testing.T) {
+			r := runShFrom(t, url, env, "--version", "v0.9.0")
+			if r.code == 0 || r.contains("PURLVIEW_RELEASE_BASE_URL must") || !r.contains("could not download checksums.txt") {
+				t.Fatalf("%s must be accepted as loopback: code=%d", url, r.code)
+			}
+		})
+	}
+
+	// And a release served on localhost installs.
+	rel := buildFixture(t, "0.9.0")
+	srv := newReleaseServer(t, rel)
+	dest := t.TempDir()
+	url := strings.Replace(srv.URL, "127.0.0.1", "localhost", 1)
+	if r := runShFrom(t, url, map[string]string{"PURLVIEW_INSTALL_DIR": dest, "PATH": minimalPath()}, "--version", "v0.9.0"); r.code != 0 || installedVersion(t, dest) != "purlview 0.9.0" {
+		t.Fatalf("install from %s failed: code=%d", url, r.code)
 	}
 }
 
