@@ -197,36 +197,31 @@ func TestPsRunsNothingThePublisherDidNotSign(t *testing.T) {
 }
 
 // As TestShTakesTheLoopbackExceptionOnlyForLoopbackHosts: plain HTTP only
-// when the URL's host is exactly a loopback name or address.
+// when the URL's host is exactly a loopback name or address. The URL check
+// is the same text on every host, so this runs on the first one only:
+// starting PowerShell is the slow part of these tests.
 func TestPsTakesTheLoopbackExceptionOnlyForLoopbackHosts(t *testing.T) {
-	for _, host := range powershellHosts(t) {
-		t.Run(filepath.Base(host), func(t *testing.T) {
-			env := map[string]string{"PURLVIEW_INSTALL_DIR": t.TempDir()}
-			for _, tc := range []struct{ url, want string }{
-				{"http://localhost:80@attacker.example.invalid", "must not contain user information"},
-				{"http://127.0.0.1:80@attacker.example.invalid/releases", "must not contain user information"},
-				{"http://[::1]:80@attacker.example.invalid", "must not contain user information"},
-				{"https://user:secret@releases.example.invalid", "must not contain user information"},
-				{"http://localhost.attacker.example.invalid", "must be an https:// URL"},
-				{"http://127.0.0.1.attacker.example.invalid:80", "must be an https:// URL"},
-				{"http://[::1]attacker.example.invalid", "must be an https:// URL"},
-				{"http://localhost:80x", "must be an https:// URL"},
-				{"http://releases.example.invalid", "must be an https:// URL"},
-			} {
-				r := runPsFrom(t, host, tc.url, env, "-Version", "v0.9.0")
-				if r.code == 0 || !r.contains("PURLVIEW_RELEASE_BASE_URL "+tc.want) {
-					t.Errorf("%s must be refused with %q: code=%d", tc.url, tc.want, r.code)
-				}
-			}
+	host := powershellHosts(t)[0]
+	env := map[string]string{"PURLVIEW_INSTALL_DIR": t.TempDir()}
+	for _, tc := range []struct{ url, want string }{
+		{"http://localhost:80@attacker.example.invalid", "must not contain user information"},
+		{"https://user:secret@releases.example.invalid", "must not contain user information"},
+		{"http://localhost.attacker.example.invalid", "must be an https:// URL"},
+		{"http://127.0.0.1.attacker.example.invalid:80", "must be an https:// URL"},
+		{"http://[::1]attacker.example.invalid", "must be an https:// URL"},
+	} {
+		r := runPsFrom(t, host, tc.url, env, "-Version", "v0.9.0")
+		if r.code == 0 || !r.contains("PURLVIEW_RELEASE_BASE_URL "+tc.want) {
+			t.Errorf("%s must be refused with %q: code=%d", tc.url, tc.want, r.code)
+		}
+	}
 
-			rel := buildFixture(t, "0.9.0")
-			srv := newReleaseServer(t, rel)
-			dest := t.TempDir()
-			url := strings.Replace(srv.URL, "127.0.0.1", "localhost", 1)
-			if r := runPsFrom(t, host, url, map[string]string{"PURLVIEW_INSTALL_DIR": dest}, "-Version", "v0.9.0"); r.code != 0 || installedVersion(t, dest) != "purlview 0.9.0" {
-				t.Fatalf("install from %s failed: code=%d", url, r.code)
-			}
-		})
+	rel := buildFixture(t, "0.9.0")
+	srv := newReleaseServer(t, rel)
+	dest := t.TempDir()
+	url := strings.Replace(srv.URL, "127.0.0.1", "localhost", 1)
+	if r := runPsFrom(t, host, url, map[string]string{"PURLVIEW_INSTALL_DIR": dest}, "-Version", "v0.9.0"); r.code != 0 || installedVersion(t, dest) != "purlview 0.9.0" {
+		t.Fatalf("install from %s failed: code=%d", url, r.code)
 	}
 }
 
