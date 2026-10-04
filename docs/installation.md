@@ -34,7 +34,7 @@ When the daemon is stopped depends on the route:
 | Homebrew cask | yes: the cask's `uninstall_preflight` hook runs `purlview daemon stop --maintenance` as your user before the old files are removed (`brew upgrade` and `brew uninstall`), and the new cask's `postflight` runs `purlview daemon resume` | |
 | `.deb` / `.rpm` download | no hook: `dpkg`/`rpm` run as root and must not stop other users' daemons | the file is replaced in place; the next `purlview share` (or `purlview daemon start`) notices the outdated daemon, stops it and starts the installed version; a share active during the package transaction keeps running until then |
 | Scoop | yes: the manifest's `pre_install` runs the installed copy's `purlview daemon stop --maintenance` before Scoop replaces it, and `post_install` runs the new copy's `purlview daemon resume` | errors never fail the install, and the maintenance marker expires after 3 minutes |
-| WinGet (portable) | no hook | `winget upgrade` cannot replace a running executable; an idle daemon has exited within 60 seconds, otherwise run `purlview daemon stop` first |
+| WinGet (portable; not yet available) | no hook | `winget upgrade` cannot replace a running executable; an idle daemon has exited within 60 seconds, otherwise run `purlview daemon stop` first |
 | `go install` | no hook | the next `purlview share` retires the old daemon |
 
 `purlview daemon stop` is the manual escape hatch for every route; it is a
@@ -50,7 +50,7 @@ own files.
 | --- | --- | --- |
 | macOS | `curl -fsSL https://purlview.com/install.sh \| sh` | `brew install --cask idyl-labs/tap/purlview`; signed, notarized archive |
 | Linux (and WSL) | `curl -fsSL https://purlview.com/install.sh \| sh` | APT or DNF repository; portable `.tar.gz`, `.deb`, `.rpm` |
-| Windows | `irm https://purlview.com/install.ps1 \| iex` | `winget install IdylLabs.Purlview`; `scoop bucket add idyl-labs https://github.com/idyl-labs/scoop-bucket` then `scoop install purlview`; signed archive |
+| Windows | `irm https://purlview.com/install.ps1 \| iex` | `scoop bucket add idyl-labs https://github.com/idyl-labs/scoop-bucket` then `scoop install purlview`; signed archive; WinGet once it is available (below) |
 | Go developers | `go install github.com/idyl-labs/purlview/cmd/purlview@<tag>` | build from a checkout (see the README) |
 
 After any route, check that the executable runs:
@@ -161,7 +161,12 @@ It selects the architecture automatically. Prereleases are never published
 to the tap, `idyl-labs/homebrew-tap`. Upgrading or uninstalling stops your daemon first (the cask says so in its
 caveats).
 
-### WinGet (Windows)
+### WinGet (Windows; not yet available)
+
+The `IdylLabs.Purlview` package is not yet in the WinGet community
+repository (`microsoft/winget-pkgs`), so `winget install` does not find it.
+Use the installer script or Scoop meanwhile. Once the package has been
+accepted there:
 
 ```powershell
 winget install IdylLabs.Purlview
@@ -226,7 +231,9 @@ release the same way, or use the APT or DNF repository above.
 go install github.com/idyl-labs/purlview/cmd/purlview@latest
 ```
 
-The result reports `built by: go install` and never shows an update notice.
+The result reports `built by: go install` and the version it was installed
+at. It checks for updates as a release does, and its update notice gives the
+`go install` command above.
 It is a developer route, not the user route; the README describes building
 from a checkout.
 
