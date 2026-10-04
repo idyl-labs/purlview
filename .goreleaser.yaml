@@ -186,15 +186,24 @@ homebrew_casks:
       bash: completions/purlview.bash
       zsh: completions/_purlview
       fish: completions/purlview.fish
+    # Every page internal/tools/gendocs writes for the command tree;
+    # TestHomebrewCaskListsEveryManualPage keeps this list in step with it.
     manpages:
       - man/purlview.1
       - man/purlview-share.1
       - man/purlview-list.1
-      - man/purlview-unshare.1
+      - man/purlview-stop.1
+      - man/purlview-link.1
+      - man/purlview-devices.1
+      - man/purlview-devices-signout.1
       - man/purlview-login.1
       - man/purlview-logout.1
       - man/purlview-whoami.1
       - man/purlview-completion.1
+      - man/purlview-completion-bash.1
+      - man/purlview-completion-fish.1
+      - man/purlview-completion-powershell.1
+      - man/purlview-completion-zsh.1
     # brew upgrade/uninstall runs the installed cask's uninstall_preflight as
     # the user: stop that user's daemon (ending its shares) before the old
     # executable is removed, as the installer scripts do. --maintenance also
