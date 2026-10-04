@@ -32,8 +32,9 @@ Windows PowerShell:
 irm https://purlview.com/install.ps1 | iex
 ```
 
-Homebrew, WinGet, Scoop, APT, DNF, the release archives, and how to verify
-a download, are in [docs/installation.md](docs/installation.md).
+Homebrew, Scoop, APT, DNF, the release archives, and how to verify a
+download, are in [docs/installation.md](docs/installation.md). The WinGet
+package is not yet in the WinGet community repository.
 
 ## How it works
 
@@ -84,11 +85,16 @@ go build -trimpath -o purlview ./cmd/purlview
 installs it in one step.
 
 A build from source speaks the same protocol to the Purlview service as a
-release. It reports `built by: source` (or `go install`) and never shows an
-update notice. A plain `go build` of a checkout reports its version as
-`devel`; `go install …@vX.Y.Z` reports that version. When the service
-requires a minimum client version, it refuses new shares from an older or
-`devel` build with `update_required`. Release builds set their version with
+release. A `go build` of a checkout reports `built by: source` and the
+version Go derives from Git: the tag when the commit is tagged, otherwise a
+pseudo-version, with `+dirty` when the tree has uncommitted changes. It
+reports `devel` only when Go records no version control information (outside
+a Git checkout, or with `-buildvcs=false`). Builds from a checkout never
+check for updates and never show an update notice.
+`go install …@vX.Y.Z` reports `built by: go install` and that version; it
+checks for updates as a release does, and its notice suggests
+`go install …@latest`. When the service requires a minimum client version,
+it refuses new shares from an older or `devel` build with `update_required`. Release builds set their version with
 `-ldflags "-X github.com/idyl-labs/purlview/internal/buildinfo.version=<version>"`,
 and so can a source build of a release tag.
 

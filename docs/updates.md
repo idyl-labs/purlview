@@ -27,7 +27,7 @@ because it is still running the old one.
 | `install.ps1` (Windows) | run the same install command again | by the installer, before replacing the executable |
 | Homebrew | `brew upgrade --cask purlview` | by the cask, before the old files are removed |
 | Scoop | `scoop update purlview` | by the manifest, before the old copy is removed |
-| WinGet | `winget upgrade IdylLabs.Purlview` | not by WinGet: stop it first with `purlview daemon stop` if a share is running |
+| WinGet (once the package is available) | `winget upgrade IdylLabs.Purlview` | not by WinGet: stop it first with `purlview daemon stop` if a share is running |
 | `.deb` / `.rpm` | install the new package | not by the package (it runs as root, across users): your next `purlview share` stops the old daemon and starts the new one |
 | `go install` | `go install github.com/idyl-labs/purlview/cmd/purlview@latest` | your next `purlview share` does it |
 
@@ -37,7 +37,8 @@ because it is still running the old one.
 
 1. **The check.** On a `share`, the daemon asks GitHub's releases API for the
    latest release: one small request, metadata only, answered from a cache
-   for 24 hours. Builds from source never check.
+   for 24 hours. Builds from a checkout (`built by: source`) never check; a
+   `go install` of a release tag does.
 2. **The notice.** A newer version prints, after the share's own output:
 
    ```
