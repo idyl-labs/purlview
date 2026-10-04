@@ -190,10 +190,15 @@ automatically; the user chooses the moment.
 seconds by default) and writes a marker that refuses new daemon starts for
 at most **3 minutes** or until `purlview daemon resume`. The installer
 scripts run it after downloading and verifying the release, replace the
-executable, then resume; the Homebrew cask runs a plain stop from its
-`uninstall_preflight` hook. Routes without a hook rely on next-use
-detection; [installation.md](installation.md) lists each route. A failed
-replacement leaves the previous executable usable; ended shares stay ended.
+executable, then resume. The Homebrew cask and the Scoop manifest do the
+same through their hooks: the installed copy runs
+`purlview daemon stop --maintenance` before it is removed (the cask's
+`uninstall_preflight`, Scoop's `pre_install`), and the new copy runs
+`purlview daemon resume` once it is in place (the cask's `postflight`,
+Scoop's `post_install`). Routes without a hook (WinGet, `.deb` and `.rpm`,
+`go install`) rely on next-use detection; [installation.md](installation.md)
+lists each route. A failed replacement leaves the previous executable usable;
+ended shares stay ended.
 
 ## Maintenance commands (hidden)
 
@@ -224,9 +229,9 @@ started daemon inherits. Released executables are not affected.
   daemon inside that job; if the job kills its members on close, the daemon
   ends with it. Ordinary consoles and Windows Terminal do not do this.
 - Windows: a running daemon holds its executable open. The installer script
-  and Homebrew stop it first; Scoop and WinGet do not have a hook that runs
-  the old executable, so an upgrade while a share is active needs
-  `purlview daemon stop` first. An idle daemon exits within 60 seconds.
+  and Scoop stop it first; WinGet has no hook that runs the old executable,
+  so a WinGet upgrade while a share is active needs `purlview daemon stop`
+  first. An idle daemon exits within 60 seconds.
 - A cross-user access test needs a second OS user, which the tests in this
   repository do not create; it is a manual check (one user starts a daemon;
   another is refused and gets their own).
