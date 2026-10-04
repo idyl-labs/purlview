@@ -196,15 +196,15 @@ func runtimeStateDirs(home string) (dirs []string, credential string) {
 			filepath.Join(base, "cache"),
 		}, filepath.Join(base, "credentials.json")
 	default:
-		// install.sh removes the whole $XDG_STATE_HOME/purlview, which is
-		// also where the CLI keeps credentials.json on Linux. That is a
-		// question about the script, not about test isolation, so the
-		// credential-like file sits next to that directory here.
+		// The credential sits in $XDG_STATE_HOME/purlview, next to the
+		// runtime fallback and the logs, which are removed around it.
+		state := filepath.Join(d["XDG_STATE_HOME"], "purlview")
 		return []string{
 			filepath.Join(d["XDG_RUNTIME_DIR"], "purlview"),
-			filepath.Join(d["XDG_STATE_HOME"], "purlview"),
+			filepath.Join(state, "runtime"),
+			filepath.Join(state, "logs"),
 			filepath.Join(d["XDG_CACHE_HOME"], "purlview"),
-		}, filepath.Join(d["XDG_STATE_HOME"], "purlview-credentials.json")
+		}, filepath.Join(state, "credentials.json")
 	}
 }
 

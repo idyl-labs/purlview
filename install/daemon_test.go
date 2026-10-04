@@ -218,24 +218,37 @@ func TestUninstallStopsDaemonAndRemovesRuntimeState(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(state, "runtime")); err != nil {
 		t.Fatal("runtime state expected before uninstall")
 	}
-	// Something that is not ours next to the state directory must survive.
-	keep := filepath.Join(filepath.Dir(state), "keep.txt")
-	if err := os.WriteFile(keep, []byte("mine"), 0o600); err != nil {
-		t.Fatal(err)
+	// The account credential, where the CLI keeps it, and anything else
+	// that is not runtime state must survive: inside the state directory
+	// and next to it.
+	keep := []string{
+		filepath.Join(state, "state", "credentials.json"),
+		filepath.Join(state, "notes.txt"),
+		filepath.Join(filepath.Dir(state), "keep.txt"),
+	}
+	for _, file := range keep {
+		writeSentinel(t, file)
+	}
+	for _, dir := range []string{"logs", "cache"} {
+		writeSentinel(t, filepath.Join(state, dir, "sentinel"))
 	}
 	exe := filepath.Join(dest, exeName())
 	r := runUninstall(t, srv, env)
-	if r.code != 0 || !r.contains("stopped the running Purlview daemon") || !r.contains("removed runtime state") || !r.contains("credentials") {
+	if r.code != 0 || !r.contains("stopped the running Purlview daemon") || !r.contains("removed runtime state") || !r.contains("credentials (if any) are not removed") {
 		t.Fatalf("uninstall: code=%d\n%s", r.code, r.output)
 	}
 	if exists(exe) {
 		t.Fatal("executable still present")
 	}
-	if exists(state) {
-		t.Fatal("runtime state must be removed")
+	for _, dir := range []string{"runtime", "logs", "cache"} {
+		if exists(filepath.Join(state, dir)) {
+			t.Errorf("%s must be removed", filepath.Join(state, dir))
+		}
 	}
-	if !exists(keep) {
-		t.Fatal("uninstall removed a file that is not runtime state")
+	for _, file := range keep {
+		if got, err := os.ReadFile(file); err != nil || string(got) != "sentinel" {
+			t.Errorf("uninstall removed or changed %s, which is not runtime state", file)
+		}
 	}
 	// No daemon process survives: its lock directory is gone, and a fresh
 	// status from a copy of the executable sees nothing.

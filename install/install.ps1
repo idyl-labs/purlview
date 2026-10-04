@@ -43,6 +43,8 @@ Leave PATH alone, as PURLVIEW_NO_MODIFY_PATH=1 does.
 
 .PARAMETER Uninstall
 Remove purlview.exe from Destination, and Destination from the user Path.
+Unless another purlview stays on PATH, also stop the daemon and remove its
+runtime, log and cache directories. Account credentials are kept.
 
 .EXAMPLE
 irm https://purlview.com/install.ps1 | iex
@@ -204,9 +206,13 @@ function Invoke-DaemonResume([string]$Exe) {
     Invoke-Daemon $Exe @('resume') | Out-Null
 }
 
+# Get-RuntimeStatePath returns the daemon's runtime, log and cache
+# directories for this user, as the CLI lays them out; these are installation
+# artifacts, not user data. The directory that holds the account credential
+# (credentials.json) is not among them, nor is anything else next to them.
 function Get-RuntimeStatePath {
-    if ($env:PURLVIEW_STATE_DIR) { return @($env:PURLVIEW_STATE_DIR) }
-    return @((Join-Path $env:LOCALAPPDATA 'purlview\runtime'), (Join-Path $env:LOCALAPPDATA 'purlview\logs'), (Join-Path $env:LOCALAPPDATA 'purlview\cache'))
+    $base = if ($env:PURLVIEW_STATE_DIR) { $env:PURLVIEW_STATE_DIR } else { Join-Path $env:LOCALAPPDATA 'purlview' }
+    return @((Join-Path $base 'runtime'), (Join-Path $base 'logs'), (Join-Path $base 'cache'))
 }
 
 # --- PATH ------------------------------------------------------------------------

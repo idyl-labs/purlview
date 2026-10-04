@@ -380,24 +380,25 @@ func TestShUninstallLeavesAnotherCopysRuntimeState(t *testing.T) {
 			t.Fatalf("install to %s failed: %d", dest, r.code)
 		}
 	}
-	if err := os.MkdirAll(state, 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(state, "daemon.log"), []byte("kept\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
+	daemonLog := filepath.Join(state, "logs", "daemon.log")
+	credential := filepath.Join(state, "state", "credentials.json")
+	writeSentinel(t, daemonLog)
+	writeSentinel(t, credential)
 
 	r := runSh(t, srv, env, "--uninstall", "--dest", extra)
 	if r.code != 0 || exists(filepath.Join(extra, "purlview")) || !r.contains("another purlview remains at "+filepath.Join(kept, "purlview")) {
 		t.Fatalf("uninstalling the second copy: code=%d", r.code)
 	}
-	if !exists(filepath.Join(state, "daemon.log")) || r.contains("removed runtime state") {
+	if !exists(daemonLog) || r.contains("removed runtime state") {
 		t.Fatal("the other copy's runtime state was removed")
 	}
 
 	r = runSh(t, srv, env, "--uninstall", "--dest", kept)
-	if r.code != 0 || !r.contains("removed runtime state "+state) || exists(state) {
+	if r.code != 0 || !r.contains("removed runtime state "+filepath.Join(state, "logs")) || exists(daemonLog) {
 		t.Fatalf("uninstalling the last copy must clear the runtime state: code=%d", r.code)
+	}
+	if !exists(credential) {
+		t.Fatal("uninstall removed the account credential")
 	}
 }
 
