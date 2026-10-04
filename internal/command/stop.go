@@ -23,7 +23,7 @@ Give the share's id from 'purlview list', its link, or the address of a page
 you opened through it. Purlview stops the share itself, so this works even
 when the device that shares it is offline. The command reports success only
 once Purlview has confirmed the stop.`,
-		Example: "  purlview " + name + " k7m2p4qx\n  purlview " + name + " https://k7m2p4qx.purlview.link/",
+		Example: "  purlview " + name + " k7m2p4qx\n  purlview " + name + " https://k7m2p4qx.purlview.invalid/",
 		Args: oneArg(
 			misuse(name+" needs a share id or link").remedy("see ", bright("purlview list")),
 			misuse(name+" takes one share at a time").remedy("see ", bright("purlview list")),

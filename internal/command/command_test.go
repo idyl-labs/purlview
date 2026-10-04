@@ -307,10 +307,10 @@ func TestUsageErrorsExitTwoWithOneHint(t *testing.T) {
 		{"share bad second recipient", []string{"share", "localhost:3000", "--to", "a@x.invalid", "--to", "nobody"}, []string{"✗ nobody isn't an email address"}},
 		{"stop without id", []string{"stop"}, []string{"✗ stop needs a share id or link — see purlview list", "Run 'purlview stop --help' for usage."}},
 		{"stop malformed", []string{"stop", "7K2M"}, []string{"✗ 7K2M isn't a share id or link — see purlview list"}},
-		{"stop with a secret-length word", []string{"stop", "Zk3vQ9x7Lm2Np5RtYw8AbC"}, []string{"✗ That isn't a share id or link — see purlview list"}},
+		{"stop with a secret-length word", []string{"stop", "SyntheticToken00000000"}, []string{"✗ That isn't a share id or link — see purlview list"}},
 		{"unshare alias", []string{"unshare"}, []string{"✗ unshare needs a share id or link", "Run 'purlview unshare --help' for usage."}},
 		{"link without id", []string{"link"}, []string{"✗ link needs a share id — see purlview list", "Run 'purlview link --help' for usage."}},
-		{"link with a link", []string{"link", "https://k7m2p4qx.purlview.link/?token=Zk3vQ9x7Lm2Np5RtYw8AbC"}, []string{"✗ link takes a share id, not a link — try purlview link k7m2p4qx"}},
+		{"link with a link", []string{"link", "https://k7m2p4qx.purlview.invalid/?token=SyntheticToken00000000"}, []string{"✗ link takes a share id, not a link — try purlview link k7m2p4qx"}},
 		{"signout without name", []string{"devices", "signout"}, []string{"✗ signout needs a device name — see purlview devices", "Run 'purlview devices signout --help' for usage."}},
 		{"list with argument", []string{"list", "extra"}, []string{"✗ extra isn't a purlview list command", "Run 'purlview list --help' for usage."}},
 		{"whoami with argument", []string{"whoami", "me"}, []string{"✗ me isn't a purlview whoami command"}},
@@ -338,7 +338,7 @@ func TestUsageErrorsExitTwoWithOneHint(t *testing.T) {
 			if n := strings.Count(stderr, "Run '"); n != 1 {
 				t.Errorf("expected exactly one help hint, got %d:\n%s", n, stderr)
 			}
-			if strings.Contains(stderr, "token=") || strings.Contains(stderr, "Zk3vQ9x7Lm2Np5RtYw8AbC") {
+			if strings.Contains(stderr, "token=") || strings.Contains(stderr, "SyntheticToken00000000") {
 				t.Errorf("a secret was echoed:\n%s", stderr)
 			}
 			if entries, _ := os.ReadDir(dir); len(entries) != 0 {

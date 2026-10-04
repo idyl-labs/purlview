@@ -1,5 +1,5 @@
 [stdout]
-https://k7m2p4qx.purlview.link/
+https://k7m2p4qx.purlview.invalid/
 [stderr]
 [32m✓[0m Sharing [36mlocalhost:3000[0m
 [32m✓[0m Invites sent to ana@example.com and raj@example.com

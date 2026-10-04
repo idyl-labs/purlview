@@ -130,19 +130,19 @@ func TestRecipients(t *testing.T) {
 // loopback names; the list is part of the request's identity.
 func TestTargets(t *testing.T) {
 	for key, want := range map[string]string{
-		"http://localhost:5173":          "http://localhost:5173",
-		"http://127.0.0.1:5173/x?y=1":    "http://localhost:5173",
-		"http://[::1]:5173":              "http://localhost:5173",
-		"HTTP://LocalHost:5173":          "http://localhost:5173",
-		"http://localhost":               "http://localhost:80",
-		"https://staging.internal":       "https://staging.internal:443",
-		"https://staging.internal:8443":  "https://staging.internal:8443",
-		"http://192.168.1.20:8080":       "http://192.168.1.20:8080",
-		"localhost:5173":                 "",
-		"ftp://localhost:21":             "",
-		"http://user@localhost:5173":     "",
-		"":                               "",
-		"https://staging.internal/x#top": "",
+		"http://localhost:5173":                 "http://localhost:5173",
+		"http://127.0.0.1:5173/x?y=1":           "http://localhost:5173",
+		"http://[::1]:5173":                     "http://localhost:5173",
+		"HTTP://LocalHost:5173":                 "http://localhost:5173",
+		"http://localhost":                      "http://localhost:80",
+		"https://staging.example.invalid":       "https://staging.example.invalid:443",
+		"https://staging.example.invalid:8443":  "https://staging.example.invalid:8443",
+		"http://192.168.1.20:8080":              "http://192.168.1.20:8080",
+		"localhost:5173":                        "",
+		"ftp://localhost:21":                    "",
+		"http://user@localhost:5173":            "",
+		"":                                      "",
+		"https://staging.example.invalid/x#top": "",
 	} {
 		if got := resource.TargetKey(key); got != want {
 			t.Errorf("TargetKey(%q) = %q, want %q", key, got, want)
@@ -152,7 +152,7 @@ func TestTargets(t *testing.T) {
 	for i := range many {
 		many[i] = "http://localhost:" + strconv.Itoa(5000+i)
 	}
-	for _, list := range [][]string{{"http://localhost:5173"}, {"http://localhost:5173/app?x=1", "http://localhost:8000"}, {"http://localhost:5173", "https://staging.internal", "http://192.168.1.20:8080"}, many[:resource.MaxTargets]} {
+	for _, list := range [][]string{{"http://localhost:5173"}, {"http://localhost:5173/app?x=1", "http://localhost:8000"}, {"http://localhost:5173", "https://staging.example.invalid", "http://192.168.1.20:8080"}, many[:resource.MaxTargets]} {
 		if !resource.Targets(list) || !resource.TargetsFor(list[0], list) {
 			t.Errorf("refused %q", list)
 		}

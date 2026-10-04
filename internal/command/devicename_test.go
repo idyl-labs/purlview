@@ -19,7 +19,7 @@ func TestDeviceName(t *testing.T) {
 		{"", "build-runner-07", "build-runner-07"},
 		{"", "DESKTOP-4F2K9QX", "DESKTOP-4F2K9QX"},
 		{"", "192.168.1.20", "192.168.1.20"},
-		{"  Studio \t Mac\x00 ", "studio.lan", "Studio Mac"},
+		{"  Studio \t Mac\x00 ", "studio.home.arpa", "Studio Mac"},
 		{"\n", "", "this device"},
 	} {
 		if got := nameFrom(c.pretty, host(c.host)); got != c.want {

@@ -17,7 +17,7 @@ import (
 func testTargets(t *testing.T, listed ...string) []*target {
 	t.Helper()
 	if len(listed) == 0 {
-		listed = []string{"http://localhost:5173", "http://localhost:8000", "https://staging.internal"}
+		listed = []string{"http://localhost:5173", "http://localhost:8000", "https://staging.example.invalid"}
 	}
 	admitted, _ := url.Parse(listed[0])
 	targets, mismatch := newTargets(admitted, listed, nil)
@@ -65,9 +65,9 @@ func TestNeedlesReplaceExactAddressesOnly(t *testing.T) {
 		`http://localhost:51730/x http://localhost:80001`: `http://localhost:51730/x http://localhost:80001`,
 		// A default-port target matches with and without its port, and only
 		// where its name ends.
-		`https://staging.internal/x https://staging.internal:443/y https://staging.internal`:                                 pub3 + `/x ` + pub3 + `/y ` + pub3,
-		`wss://staging.internal/s "https://staging.internal"`:                                                                `wss://k7m2p4qx.purlview.invalid/_purlview/t/3/s "` + pub3 + `"`,
-		`https://staging.internal.evil/ https://staging.internal_x https://staging.internal:8443/ https://staging.internals`: `https://staging.internal.evil/ https://staging.internal_x https://staging.internal:8443/ https://staging.internals`,
+		`https://staging.example.invalid/x https://staging.example.invalid:443/y https://staging.example.invalid`:                                                pub3 + `/x ` + pub3 + `/y ` + pub3,
+		`wss://staging.example.invalid/s "https://staging.example.invalid"`:                                                                                      `wss://k7m2p4qx.purlview.invalid/_purlview/t/3/s "` + pub3 + `"`,
+		`https://staging.example.invalid.evil.example/ https://staging.example.invalid_x https://staging.example.invalid:8443/ https://staging.example.invalids`: `https://staging.example.invalid.evil.example/ https://staging.example.invalid_x https://staging.example.invalid:8443/ https://staging.example.invalids`,
 		// Deliberately not replaced.
 		`localhost:5173 https://localhost:5173 HTTP://LOCALHOST:5173 http://localhost:9999 http://0.0.0.0:5173 http%3A%2F%2Flocalhost%3A5173`: `localhost:5173 https://localhost:5173 HTTP://LOCALHOST:5173 http://localhost:9999 http://0.0.0.0:5173 http%3A%2F%2Flocalhost%3A5173`,
 		pub + `/already`:  pub + `/already`,
@@ -147,11 +147,11 @@ func TestMountsAreRecognisedOnlyInTheirCanonicalSpelling(t *testing.T) {
 // alone; a path on a further target is ignored.
 func TestServedTargetsFollowTheAdmittedOne(t *testing.T) {
 	admitted, _ := url.Parse("http://127.0.0.1:5173")
-	targets, mismatch := newTargets(admitted, []string{"http://localhost:5173/review?round=1", "http://localhost:8000/ignored?too", "https://staging.internal"}, nil)
+	targets, mismatch := newTargets(admitted, []string{"http://localhost:5173/review?round=1", "http://localhost:8000/ignored?too", "https://staging.example.invalid"}, nil)
 	if mismatch != "" || len(targets) != 3 {
 		t.Fatalf("%d targets, %q", len(targets), mismatch)
 	}
-	for i, want := range []struct{ url, mount, name string }{{"http://127.0.0.1:5173", "", "127.0.0.1:5173"}, {"http://localhost:8000", "/_purlview/t/2", "localhost:8000"}, {"https://staging.internal", "/_purlview/t/3", "staging.internal"}} {
+	for i, want := range []struct{ url, mount, name string }{{"http://127.0.0.1:5173", "", "127.0.0.1:5173"}, {"http://localhost:8000", "/_purlview/t/2", "localhost:8000"}, {"https://staging.example.invalid", "/_purlview/t/3", "staging.example.invalid"}} {
 		if got := targets[i]; got.url.String() != want.url || got.mount != want.mount || got.name != want.name || got.watch == nil || got.watch.target != want.name {
 			t.Errorf("target %d: %+v", i+1, got)
 		}
@@ -175,7 +175,7 @@ func TestRewriterIsChunkingInvariant(t *testing.T) {
 	corpus := strings.Repeat(`<script>fetch("http://localhost:8000/api").then(r=>r.json());const ws=new WebSocket("ws://localhost:5173/hmr");</script>
 data: {"url":"http:\/\/localhost:8000\/x","other":"http://localhost:80001","rel":"//localhost:8000/p","ftp":"ftp://localhost:8000/"}
 
-https://staging.internal https://staging.internal:443/x https://staging.internals http://localhost:517 http://localhost:5173
+https://staging.example.invalid https://staging.example.invalid:443/x https://staging.example.invalids http://localhost:517 http://localhost:5173
 hhhhttp://localhost:5173/ ws://ws://localhost:8000/ //localhost:51 //localhost:5173
 `, 8)
 	want := rewriteAll(set, corpus)
@@ -275,8 +275,8 @@ func TestRewriterAgreesWithTheOracle(t *testing.T) {
 		"http://localhost:8000", "http://127.0.0.1:8000", "http://[::1]:8000", "http://localhost:5173", "http://127.0.0.1:5173", "http://[::1]:5173",
 		"ws://localhost:8000", "ws://127.0.0.1:5173", "wss://localhost:5173", `http:\/\/localhost:8000`, `ws:\/\/127.0.0.1:5173`, `http:\/\/[::1]:8000`,
 		"//localhost:8000", "//127.0.0.1:5173", "//[::1]:8000", `\/\/localhost:8000`,
-		"https://staging.internal", "https://staging.internal:443", "wss://staging.internal", `https:\/\/staging.internal`, "//staging.internal",
-		"https://staging.internals", "https://staging.internal.evil", "https://staging.internal_x", "https://staging.internal:8443", "https://staging.internal-x", "https://staging.internal:443x",
+		"https://staging.example.invalid", "https://staging.example.invalid:443", "wss://staging.example.invalid", `https:\/\/staging.example.invalid`, "//staging.example.invalid",
+		"https://staging.example.invalids", "https://staging.example.invalid.evil.example", "https://staging.example.invalid_x", "https://staging.example.invalid:8443", "https://staging.example.invalid-x", "https://staging.example.invalid:443x",
 		":51730", "0", "1", "9", ".evil", "_", "-", "x", "X", "A", "a", "z", "Z",
 		"HTTP://LOCALHOST:8000", "http://LocalHost:8000", "Http://localhost:8000", "ws://LOCALHOST:5173",
 		"http://localhost:9999", "https://localhost:5173", "localhost:5173", "http://localhost:800", "http://localhost:80001", "http://localhost", "ftp:", "ftp://localhost:8000", "ftp://[::1]:8000",
@@ -339,22 +339,22 @@ func (c *chunkReader) Read(p []byte) (int, error) {
 func TestRewriterHoldsBackOnlyAPossibleMatch(t *testing.T) {
 	set := newNeedleSet(mustOrigin(t, livePublic), testTargets(t))
 	for in, want := range map[string]struct{ out, pending string }{
-		"data: hello\n\n":                {"data: hello\n\n", ""},
-		"<p>x</p>\r\n":                   {"<p>x</p>\r\n", ""},
-		`"http://localhost:8000/x"`:      {`"` + pub2 + `/x"`, ""},
-		"see http://loc":                 {"see ", "http://loc"},
-		"see http://localhost:8000":      {"see ", "http://localhost:8000"}, // the delimiter is the next byte
-		"see http://localhost:8000/":     {"see " + pub2, "/"},              // a slash can begin //host
-		"see http://localhost:8000/x":    {"see " + pub2 + "/x", ""},
-		"see https://staging.internal":   {"see ", "https://staging.internal"},
-		"see https://staging.internal\n": {"see " + pub3 + "\n", ""},
-		"a/":                             {"a", "/"},
-		"a//":                            {"a", "//"},
-		"a//x":                           {"a//x", ""},
-		"ftp:":                           {"ftp:", ""},
-		"h":                              {"", "h"},
-		"http://localhost:9":             {"http://localhost:9", ""},
-		"":                               {"", ""},
+		"data: hello\n\n":                       {"data: hello\n\n", ""},
+		"<p>x</p>\r\n":                          {"<p>x</p>\r\n", ""},
+		`"http://localhost:8000/x"`:             {`"` + pub2 + `/x"`, ""},
+		"see http://loc":                        {"see ", "http://loc"},
+		"see http://localhost:8000":             {"see ", "http://localhost:8000"}, // the delimiter is the next byte
+		"see http://localhost:8000/":            {"see " + pub2, "/"},              // a slash can begin //host
+		"see http://localhost:8000/x":           {"see " + pub2 + "/x", ""},
+		"see https://staging.example.invalid":   {"see ", "https://staging.example.invalid"},
+		"see https://staging.example.invalid\n": {"see " + pub3 + "\n", ""},
+		"a/":                                    {"a", "/"},
+		"a//":                                   {"a", "//"},
+		"a//x":                                  {"a//x", ""},
+		"ftp:":                                  {"ftp:", ""},
+		"h":                                     {"", "h"},
+		"http://localhost:9":                    {"http://localhost:9", ""},
+		"":                                      {"", ""},
 	} {
 		out, pending, _ := set.process([]byte(in), false, -1)
 		if string(out) != want.out || string(pending) != want.pending {

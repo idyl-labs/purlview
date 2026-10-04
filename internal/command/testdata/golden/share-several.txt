@@ -1,5 +1,5 @@
 [stdout]
-https://k7m2p4qx.purlview.link/?token=Zk3vQ9x7Lm2Np5RtYw8AbC
+https://k7m2p4qx.purlview.invalid/?token=SyntheticToken00000000
 [stderr]
 ✓ Sharing localhost:5173
   + localhost:8000

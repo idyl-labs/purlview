@@ -11,7 +11,7 @@ Usage:
 
 Examples:
   purlview stop k7m2p4qx
-  purlview stop https://k7m2p4qx.purlview.link/
+  purlview stop https://k7m2p4qx.purlview.invalid/
 
 Flags:
   -h, --help   Show help for stop.

@@ -34,8 +34,8 @@ type surface struct {
 }
 
 const (
-	goldenLink       = "https://k7m2p4qx.purlview.link/?token=Zk3vQ9x7Lm2Np5RtYw8AbC"
-	goldenEntry      = "https://k7m2p4qx.purlview.link/"
+	goldenLink       = "https://k7m2p4qx.purlview.invalid/?token=SyntheticToken00000000"
+	goldenEntry      = "https://k7m2p4qx.purlview.invalid/"
 	goldenExpiry     = "3:42 PM"
 	goldenAccountCmd = "purlview login"
 )
@@ -66,7 +66,7 @@ func goldenShares() ([]share.Share, *api.InstallationCredential) {
 	cred := &api.InstallationCredential{Identity: resource.Identity{Account: "sam@example.com", Device: "dev_macbook", DeviceLabel: "macbook"}}
 	return []share.Share{
 		{ID: "shr_k7m2p4qx", Target: "http://localhost:5173", Targets: []string{"http://localhost:5173", "http://localhost:8000"}, Device: "dev_macbook", DeviceLabel: "macbook", State: share.StateReady, ExpiresAt: goldenNow.Add(43 * time.Minute), URL: goldenLink},
-		{ID: "shr_p4q9x2bd", Target: "http://localhost:3000", Device: "dev_laptop", DeviceLabel: "laptop", Recipients: []string{"ana@example.com", "raj@example.com"}, State: share.StateReconnecting, ExpiresAt: goldenNow.Add(12 * time.Minute), URL: "https://p4q9x2bd.purlview.link/"},
+		{ID: "shr_p4q9x2bd", Target: "http://localhost:3000", Device: "dev_laptop", DeviceLabel: "laptop", Recipients: []string{"ana@example.com", "raj@example.com"}, State: share.StateReconnecting, ExpiresAt: goldenNow.Add(12 * time.Minute), URL: "https://p4q9x2bd.purlview.invalid/"},
 	}, cred
 }
 
@@ -209,7 +209,7 @@ var surfaces = []surface{
 		say(p, d, "purlview share", invalid(must(share.ParseTargets([]string{"5173", "127.0.0.1:5173"}))))
 		say(p, d, "purlview share", invalid(must(share.ParseTargets([]string{}))))
 		say(p, d, "purlview", unknownCommand(newHelpRoot(), "shar"))
-		say(p, d, "purlview link", notLinkID(share.Ref{URL: "https://k7m2p4qx.purlview.link"}))
+		say(p, d, "purlview link", notLinkID(share.Ref{URL: "https://k7m2p4qx.purlview.invalid"}))
 		say(p, d, "purlview login", fail("Sign-in was not finished").remedy("run ", bright(goldenAccountCmd), " again"))
 		say(p, d, "purlview share", limitReached("running_shares"))
 		say(p, d, "purlview share", limitReached("shares_per_hour"))
