@@ -77,7 +77,12 @@ if [[ "$PHASE" == publish || "$PHASE" == all ]]; then
   if $PRERELEASE; then
     latest_flag=--latest=false
   elif current="$(gh release view --repo "$REPO" --json tagName --jq .tagName 2>/dev/null)" && [[ -n "$current" && "$current" != "$TAG" ]]; then
-    if [[ "$(go run ./internal/tools/semvercmp "$TAG" "$current" 2>/dev/null || echo 1)" == -1 ]]; then
+    # The workflow serialises this job across tags, so the latest release
+    # read above is still the latest when the edit below runs. A comparison
+    # that fails leaves the release a draft rather than guessing.
+    order="$(go run ./internal/tools/semvercmp "$TAG" "$current")" \
+      || { echo "publish: cannot compare $TAG with the latest release $current; the draft was left unpublished" >&2; exit 1; }
+    if [[ "$order" == -1 ]]; then
       echo "publish: $current stays the latest release; $TAG is older and will not replace it"
       latest_flag=--latest=false
     fi

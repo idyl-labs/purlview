@@ -102,6 +102,36 @@ Homebrew, Scoop and WinGet are updated only for a stable release, published
 in a public release repository, whose macOS executables are signed and
 notarized.
 
+### Concurrent releases
+
+Runs for different tags may overlap: building, signing and verifying them
+in parallel is safe. The stages that change what users receive are
+serialised across all tags, each in its own fixed concurrency group:
+
+| Job | Group | What it protects |
+| --- | --- | --- |
+| `publish` | `release-publication-latest` | the "latest" mark of the release repository |
+| `distribute-homebrew` | `release-publication-homebrew` | the tap's cask |
+| `distribute-scoop` | `release-publication-scoop` | the bucket's manifest |
+| `distribute-packages` | `release-publication-packages` | the APT and DNF repositories, which are read, extended and written back as a whole |
+| `distribute-winget` | `release-publication-winget` | the WinGet pull request |
+
+While a job holds its group, no other release can change that channel, so
+the version it reads there is still current when it writes. Each job compares
+its version with the channel's there and then: `publish` leaves a newer
+"latest" in place (and leaves the release a draft if the two versions cannot
+be compared), and the Homebrew, Scoop and package-repository jobs refuse to
+move their channel to an older version. WinGet keeps every version and its
+clients pick the newest. Two releases therefore end with the newer one on
+every channel, whichever order their jobs run in.
+
+The groups are separate because GitHub keeps at most one waiting job per
+group: when a third job joins a group that already has one running and one
+waiting, the waiting one is cancelled. One shared group would cancel jobs of
+the same run. With separate groups, a job is cancelled this way only when
+three releases reach the same stage at once; re-run it, and its downgrade
+guard decides whether it still applies.
+
 The unsigned executables are reproducible for a given Go toolchain and
 commit, which is what lets `assemble` rebuild them and check them against
 what was signed. Signatures, notarization tickets and the Sigstore bundle
@@ -224,6 +254,9 @@ and installs from them with apt and dnf in containers.
 - **A channel failed:** re-run only that `distribute` job. It uses the
   published files and never rebuilds, and an older run cannot move a channel
   backwards.
+- **A `publish` or `distribute` job was cancelled while waiting:** another
+  release took its concurrency group (see
+  [Concurrent releases](#concurrent-releases)). Re-run it.
 - **A published version is bad:** release a new version. If a channel must be
   pointed away from the bad version at once, edit its manifest by hand to the
   last good version; the next release overwrites it.
