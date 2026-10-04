@@ -108,8 +108,16 @@ function Fail([string]$Message) { throw "purlview-install: error: $Message" }
 # Only HTTPS is accepted, except plain HTTP to the loopback interface, which
 # the installer tests use to serve local fixtures. Nothing signs a fixture, so
 # its signature is checked only when PURLVIEW_VERIFY_PUBLISHER=1 asks.
-if ($ReleaseBaseUrl -notmatch '^https://' -and $ReleaseBaseUrl -notmatch '^http://(127\.0\.0\.1|localhost|\[::1\])(:[0-9]+)?(/|$)') {
-    Fail "PURLVIEW_RELEASE_BASE_URL must be an https:// URL, got: $ReleaseBaseUrl"
+# The authority is everything between the scheme and the first slash, and it
+# is compared whole: user information is refused outright, because in
+# http://localhost:80@host.example the host is host.example, and a host that
+# only begins with a loopback name (localhost.example) is not loopback.
+$urlAuthority = ($ReleaseBaseUrl -split '://', 2)[-1].Split('/')[0]
+if ($urlAuthority.Contains('@')) {
+    Fail "PURLVIEW_RELEASE_BASE_URL must not contain user information, got: $ReleaseBaseUrl"
+}
+if ($ReleaseBaseUrl -notmatch '^https://.' -and -not ($ReleaseBaseUrl -match '^http://' -and $urlAuthority -match '\A(127\.0\.0\.1|localhost|\[::1\])(:[0-9]+)?\z')) {
+    Fail "PURLVIEW_RELEASE_BASE_URL must be an https:// URL (plain http:// only to 127.0.0.1, localhost or [::1]), got: $ReleaseBaseUrl"
 }
 $VerifyPublisher = $ReleaseBaseUrl -match '^https://' -or $env:PURLVIEW_VERIFY_PUBLISHER -eq '1'
 
