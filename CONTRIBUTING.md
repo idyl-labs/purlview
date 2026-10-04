@@ -112,4 +112,7 @@ goreleaser release --snapshot --clean --skip=publish,sign
   "problem — remedy", with the cause only under `PURLVIEW_DEBUG=1`.
 - Tests use synthetic identities and reserved domains (`example.invalid`,
   `purlview.invalid`), never real accounts or hosts.
+- Every source file starts with the licence header in `.license-header`. CI
+  checks it; add it with
+  `git ls-files -z | xargs -0 go run github.com/google/addlicense@v1.2.0 -f .license-header`.
 - Use UK English in prose; identifiers keep their established spelling.
