@@ -45,6 +45,10 @@ env:
   # assemble bake the same update-check repository into the executable.
   PURLVIEW_RELEASE_OWNER: ${{ github.repository_owner }}
   PURLVIEW_RELEASE_REPOSITORY: purlview-releases
+  # The tag being released. Without it GoReleaser picks its own when one
+  # commit carries several tags (a release candidate and its release), and
+  # can build the wrong version.
+  GORELEASER_CURRENT_TAG: ${{ github.ref_name }}
 
 jobs:
   preflight:
