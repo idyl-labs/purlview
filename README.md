@@ -120,4 +120,6 @@ Developer Certificate of Origin. Report vulnerabilities privately, as
 
 ## Licence
 
-Apache License 2.0; see [LICENSE](LICENSE) and [NOTICE](NOTICE).
+Apache License 2.0; see [LICENSE](LICENSE) and [NOTICE](NOTICE). The
+licences of the third-party software in the `purlview` executable are in
+[THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES).

@@ -15,11 +15,14 @@ on:
       - release/**
       - internal/tools/applysigned/**
       - internal/tools/gendocs/**
+      - internal/tools/notices/**
       - internal/tools/semvercmp/**
       - internal/buildinfo/**
       - internal/updatecheck/**
       - go.mod
       - go.sum
+      - THIRD_PARTY_NOTICES
+      - NOTICE
   push:
     branches: [main]
     paths:
@@ -29,11 +32,14 @@ on:
       - release/**
       - internal/tools/applysigned/**
       - internal/tools/gendocs/**
+      - internal/tools/notices/**
       - internal/tools/semvercmp/**
       - internal/buildinfo/**
       - internal/updatecheck/**
       - go.mod
       - go.sum
+      - THIRD_PARTY_NOTICES
+      - NOTICE
   workflow_dispatch:
 
 permissions:
@@ -80,6 +86,36 @@ jobs:
           test -f dist/scoop/purlview.json
           test -n "$(find dist/winget -name '*.yaml')"
           (cd dist && sha256sum -c checksums.txt)
+      - name: Every archive and package ships the licence and notice files
+        run: |
+          set -euo pipefail
+          missing=0
+          for f in dist/*.tar.gz; do
+            for n in LICENSE NOTICE THIRD_PARTY_NOTICES; do
+              tar -tzf "$f" | grep -x "$n" >/dev/null || { echo "$f: no $n"; missing=1; }
+            done
+          done
+          for f in dist/*.zip; do
+            for n in LICENSE NOTICE THIRD_PARTY_NOTICES; do
+              unzip -Z1 "$f" | grep -x "$n" >/dev/null || { echo "$f: no $n"; missing=1; }
+            done
+          done
+          for f in dist/*.deb; do
+            for n in LICENSE NOTICE THIRD_PARTY_NOTICES; do
+              dpkg-deb -c "$f" | grep " \./usr/share/doc/purlview/$n\$" >/dev/null || { echo "$f: no /usr/share/doc/purlview/$n"; missing=1; }
+            done
+          done
+          for f in dist/*.rpm; do
+            for n in LICENSE NOTICE THIRD_PARTY_NOTICES; do
+              rpm -qlp "$f" | grep -x "/usr/share/doc/purlview/$n" >/dev/null || { echo "$f: no /usr/share/doc/purlview/$n"; missing=1; }
+            done
+          done
+          # The Homebrew cask and the Scoop manifest install from the archives
+          # above and keep their whole contents.
+          grep -q 'purlview_.*_darwin_.*\.tar\.gz' dist/homebrew/Casks/purlview.rb
+          grep -q 'purlview_.*_windows_.*\.zip' dist/scoop/purlview.json
+          cmp THIRD_PARTY_NOTICES <(tar -xOzf "$(find dist -maxdepth 1 -name 'purlview_*_linux_amd64.tar.gz')" THIRD_PARTY_NOTICES)
+          exit "$missing"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: snapshot-dist

@@ -39,6 +39,8 @@ jobs:
         run: go mod tidy -diff
       - name: Module checksums
         run: go mod verify
+      - name: Third-party notices match the linked modules
+        run: go run ./internal/tools/notices -check THIRD_PARTY_NOTICES
       - name: shellcheck
         run: |
           shellcheck --version
