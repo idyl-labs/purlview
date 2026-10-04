@@ -79,9 +79,10 @@ Options:
   --dest DIR         install to DIR (default: $PURLVIEW_INSTALL_DIR or ~/.local/bin)
   --arch ARCH        amd64 or arm64 (default: detected)
   --no-modify-path   do not add DIR to PATH (or set PURLVIEW_NO_MODIFY_PATH=1)
-  --uninstall        remove purlview from DIR, its runtime state (unless
-                     another purlview stays on PATH) and the
-                     PATH lines this installer added
+  --uninstall        remove purlview from DIR, its runtime, log and cache
+                     directories (unless another purlview stays on PATH)
+                     and the PATH lines this installer added; account
+                     credentials are kept
   -h, --help         show this help
 
 Downloads the archive and checksums.txt over HTTPS, verifies the SHA-256
@@ -387,18 +388,23 @@ resume_daemon() {
 }
 
 # runtime_state_dirs prints the daemon's runtime, log and cache directories
-# for this user; these are installation artifacts, not user data.
+# for this user, as the CLI lays them out; these are installation artifacts,
+# not user data. The directory that holds the account credential
+# (credentials.json) is not among them, nor is anything else next to them.
 runtime_state_dirs() {
   if [ -n "${PURLVIEW_STATE_DIR:-}" ]; then
-    printf '%s\n' "$PURLVIEW_STATE_DIR"
+    printf '%s\n' "$PURLVIEW_STATE_DIR/runtime" "$PURLVIEW_STATE_DIR/logs" "$PURLVIEW_STATE_DIR/cache"
     return
   fi
   case "$OS" in
     darwin)
       printf '%s\n' "$HOME/Library/Application Support/purlview/runtime" "$HOME/Library/Logs/purlview" "$HOME/Library/Caches/purlview" ;;
     linux)
+      # The runtime directory is under XDG_RUNTIME_DIR when that is set and
+      # under the state directory otherwise; either may exist.
       [ -n "${XDG_RUNTIME_DIR:-}" ] && printf '%s\n' "$XDG_RUNTIME_DIR/purlview"
-      printf '%s\n' "${XDG_STATE_HOME:-$HOME/.local/state}/purlview" "${XDG_CACHE_HOME:-$HOME/.cache}/purlview" ;;
+      l_state="${XDG_STATE_HOME:-$HOME/.local/state}/purlview"
+      printf '%s\n' "$l_state/runtime" "$l_state/logs" "${XDG_CACHE_HOME:-$HOME/.cache}/purlview" ;;
   esac
 }
 
