@@ -403,7 +403,7 @@ func TestSeveralTargets(t *testing.T) {
 	probe := &recordingProber{refuse: "http://localhost:8000"}
 	e := New(Config{Platform: p, Prober: probe, Clock: clk})
 	sess, _ := e.Open(context.Background(), true)
-	targets := []share.Target{{URL: "http://localhost:5173/app?x=1"}, {URL: "http://localhost:8000"}, {URL: "https://staging.internal"}}
+	targets := []share.Target{{URL: "http://localhost:5173/app?x=1"}, {URL: "http://localhost:8000"}, {URL: "https://staging.example.invalid"}}
 	if _, err := sess.Start(context.Background(), share.StartRequest{Attempt: "t1", Spec: share.Spec{Targets: targets, TTL: time.Hour, NoRewrite: true}, Owner: share.OwnerDetached, Credential: cred}); err != nil {
 		t.Fatal(err)
 	}
@@ -423,7 +423,7 @@ func TestSeveralTargets(t *testing.T) {
 	probed := slices.Clone(probe.probed)
 	probe.mu.Unlock()
 	slices.Sort(probed)
-	if !slices.Equal(probed, []string{"http://localhost:5173/app?x=1", "http://localhost:8000", "https://staging.internal"}) {
+	if !slices.Equal(probed, []string{"http://localhost:5173/app?x=1", "http://localhost:8000", "https://staging.example.invalid"}) {
 		t.Fatalf("probed %v", probed)
 	}
 	probe.mu.Lock()

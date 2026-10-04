@@ -31,7 +31,7 @@ type recordingManagement struct{ origin, target string }
 
 func (m recordingManagement) CreateShare(_ context.Context, _ api.InstallationCredential, req api.CreateShareRequest) (*api.ShareAccess, error) {
 	now := time.Now()
-	return &api.ShareAccess{Share: resource.Share{ID: "shr_qvrvm4qb", Origin: m.origin, EntryOrigin: "https://qvrvm4qb.purlview.test:8443", Target: req.Target, Targets: req.Targets, Device: "dev_test", DeviceLabel: "test", State: "starting", CreatedAt: now, ExpiresAt: now.Add(time.Hour)}, URL: "https://qvrvm4qb.purlview.test:8443/?token=Zk3vQ9x7Lm2Np5RtYw8AbC"}, nil
+	return &api.ShareAccess{Share: resource.Share{ID: "shr_qvrvm4qb", Origin: m.origin, EntryOrigin: "https://qvrvm4qb.purlview.test:8443", Target: req.Target, Targets: req.Targets, Device: "dev_test", DeviceLabel: "test", State: "starting", CreatedAt: now, ExpiresAt: now.Add(time.Hour)}, URL: "https://qvrvm4qb.purlview.test:8443/?token=SyntheticToken00000000"}, nil
 }
 
 func (recordingManagement) Revoke(context.Context, api.InstallationCredential, string) error {

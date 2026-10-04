@@ -38,9 +38,10 @@ func newShare(info buildinfo.Info, p *output.Printer, d Deps) *cobra.Command {
 		Long: `Share your running app and print its link.
 
 Name your app by its port (3000), by host and port (localhost:3000,
-192.168.1.20:8080) or by a full address (https://staging.internal/demo). A
-path or query, as in 3000/dashboard?tab=2, is the page the link opens; the
-whole app stays reachable.
+192.168.1.20:8080) or by a full address
+(https://staging.example.invalid/demo). A path or query, as in
+3000/dashboard?tab=2, is the page the link opens; the whole app stays
+reachable.
 
 Name several apps, separated by spaces (5173 8000), when one calls another:
 the link opens the first app's page, and the others are reachable from it
@@ -59,7 +60,7 @@ otherwise run 'purlview login' first.`,
   purlview share 5173 8000
   purlview share 3000 --to ana@example.com
   purlview share 3000/dashboard --background
-  purlview share https://staging.internal/demo --ttl 15m`,
+  purlview share https://staging.example.invalid/demo --ttl 15m`,
 		Args: usageArgs(cobra.ArbitraryArgs),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			targets, err := share.ParseTargets(args)

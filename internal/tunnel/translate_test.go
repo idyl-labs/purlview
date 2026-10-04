@@ -83,7 +83,7 @@ func TestRequestHeadersNamingTheShareNameTheTarget(t *testing.T) {
 		{"Origin", "https://K7M2P4QX.PURLVIEW.INVALID", "http://localhost:3000"},
 		{"Origin", "https://evil.example", "https://evil.example"},
 		{"Origin", "https://other.purlview.invalid", "https://other.purlview.invalid"},
-		{"Origin", "https://k7m2p4qx.purlview.link", "https://k7m2p4qx.purlview.link"},
+		{"Origin", "https://k7m2p4qx.example.invalid", "https://k7m2p4qx.example.invalid"},
 		{"Origin", "http://k7m2p4qx.purlview.invalid", "http://k7m2p4qx.purlview.invalid"},
 		{"Origin", "https://k7m2p4qx.purlview.invalid:8443", "https://k7m2p4qx.purlview.invalid:8443"},
 		{"Origin", "https://k7m2p4qx.purlview.invalid.evil.example", "https://k7m2p4qx.purlview.invalid.evil.example"},

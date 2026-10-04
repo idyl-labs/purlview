@@ -17,7 +17,7 @@ import (
 // them would generate public URLs and defeat the translation.
 
 // origin is an http or https origin with a lower-case host and an explicit
-// port, so https://x.live and https://X.live:443 are equal. The zero value is
+// port, so https://k7m2p4qx.purlview.invalid and https://K7M2P4QX.purlview.invalid:443 are equal. The zero value is
 // no origin and equals nothing cutOrigin returns.
 type origin struct{ scheme, host, port string }
 

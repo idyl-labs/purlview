@@ -20,7 +20,7 @@ func TestParseTarget(t *testing.T) {
 		"http://localhost:3000/app/index.html":     "http://localhost:3000/app/index.html",
 		"http://localhost:3000/search?q=a%20b&x=1": "http://localhost:3000/search?q=a%20b&x=1",
 		"localhost:3000/dashboard?tab=2":           "http://localhost:3000/dashboard?tab=2",
-		"my-app.internal:9000":                     "http://my-app.internal:9000",
+		"my-app.example.invalid:9000":              "http://my-app.example.invalid:9000",
 		"http://localhost:3000/":                   "http://localhost:3000/",
 		"3000":                                     "http://localhost:3000",
 		":3000":                                    "http://localhost:3000",
@@ -46,7 +46,7 @@ func TestParseTarget(t *testing.T) {
 		"70000":                         "70000 isn't a valid port — ports run from 1 to 65535",
 		":0":                            "0 isn't a valid port — ports run from 1 to 65535",
 		"localhost":                     "localhost needs a port — try purlview share localhost:3000",
-		"my-app.internal":               "my-app.internal needs a port — try purlview share my-app.internal:3000",
+		"my-app.example.invalid":        "my-app.example.invalid needs a port — try purlview share my-app.example.invalid:3000",
 		"localhost:99999":               "99999 isn't a valid port",
 		"localhost:abc":                 "abc isn't a valid port",
 		"ftp://host:21":                 "ftp addresses can't be shared — use http or https",
@@ -115,7 +115,7 @@ func TestParseRecipients(t *testing.T) {
 
 func TestDisplayTarget(t *testing.T) {
 	t.Parallel()
-	for in, want := range map[string]string{"http://localhost:3000": "localhost:3000", "http://localhost:3000/demo?x=1": "localhost:3000", "https://staging.internal/demo": "staging.internal", "http://[::1]:8080": "[::1]:8080", "not a url": "not a url"} {
+	for in, want := range map[string]string{"http://localhost:3000": "localhost:3000", "http://localhost:3000/demo?x=1": "localhost:3000", "https://staging.example.invalid/demo": "staging.example.invalid", "http://[::1]:8080": "[::1]:8080", "not a url": "not a url"} {
 		if got := DisplayTarget(in); got != want {
 			t.Errorf("%q: got %q, want %q", in, got, want)
 		}
@@ -148,10 +148,10 @@ func TestParseRef(t *testing.T) {
 		}
 	}
 	for in, want := range map[string]string{
-		"https://k7m2p4qx.purlview.link/?token=Zk3vQ9x7Lm2Np5RtYw8AbC": "https://k7m2p4qx.purlview.link",
-		"https://k7m2p4qx.purlview.link/":                              "https://k7m2p4qx.purlview.link",
-		"https://k7m2p4qx.purlview.invalid/demo?version=2":             "https://k7m2p4qx.purlview.invalid",
-		"https://K7M2P4QX.staging.purlview.invalid/some/path?x=1":      "https://k7m2p4qx.staging.purlview.invalid",
+		"https://k7m2p4qx.purlview.invalid/?token=SyntheticToken00000000": "https://k7m2p4qx.purlview.invalid",
+		"https://k7m2p4qx.purlview.invalid/":                              "https://k7m2p4qx.purlview.invalid",
+		"https://k7m2p4qx.purlview.invalid/demo?version=2":                "https://k7m2p4qx.purlview.invalid",
+		"https://K7M2P4QX.staging.purlview.invalid/some/path?x=1":         "https://k7m2p4qx.staging.purlview.invalid",
 	} {
 		// A link names its share by the label in its hostname.
 		if r, err := ParseRef(in); err != nil || r.ID != "" || r.URL != want || r.String() != "k7m2p4qx" {
@@ -166,7 +166,7 @@ func TestParseRef(t *testing.T) {
 	if _, err := ParseRef("7K2M"); err == nil || err.Error() != "7K2M isn't a share id or link — see purlview list" {
 		t.Fatalf("mistyped id: %v", err)
 	}
-	if _, err := ParseRef("Zk3vQ9x7Lm2Np5RtYw8AbC"); err == nil || err.Error() != "That isn't a share id or link — see purlview list" {
+	if _, err := ParseRef("SyntheticToken00000000"); err == nil || err.Error() != "That isn't a share id or link — see purlview list" {
 		t.Fatalf("a token-length word: %v", err)
 	}
 	// A bare word must have the label shape: eight characters, a leading
@@ -191,7 +191,7 @@ func TestRefCleanKeepsCanonicalID(t *testing.T) {
 			t.Errorf("%s: %+v %v", id, got, err)
 		}
 	}
-	if got, err := (Ref{URL: "https://k7m2p4qx.purlview.link/?token=synthetic-secret"}).clean(); err != nil || got.URL != "https://k7m2p4qx.purlview.link" {
+	if got, err := (Ref{URL: "https://k7m2p4qx.purlview.invalid/?token=synthetic-secret"}).clean(); err != nil || got.URL != "https://k7m2p4qx.purlview.invalid" {
 		t.Errorf("url: %+v %v", got, err)
 	}
 }
