@@ -43,6 +43,8 @@ type target struct {
 	name  string
 	watch *appWatch
 	rp    *httputil.ReverseProxy
+	// catchup is the target's catch-up observer, nil without rewriting.
+	catchup *observer
 }
 
 // mountFor is the mount of the target at 1-based position n.

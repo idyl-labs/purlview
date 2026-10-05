@@ -46,6 +46,10 @@ Linux and Windows and need nothing beyond Go: they build real CLI and daemon
 executables, start daemons, run the installer scripts against a loopback
 release server and serve a synthetic platform through `sdk/apiserver`.
 
+The script the daemon adds to shared pages (`internal/tunnel/catchup.js`)
+is tested in Node when `node` is on the `PATH`; without it, that one test is
+skipped.
+
 The tests never touch your own daemon, credential or home directory. Every
 daemon and command they run uses a private `PURLVIEW_STATE_DIR`; inside a
 `go test` binary the default per-user paths are refused
