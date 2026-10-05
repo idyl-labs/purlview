@@ -536,3 +536,150 @@ func TestRewriteResponse(t *testing.T) {
 	// A nil logger is fine.
 	rewriteResponse(response(200, "GET", html("Content-Encoding", "gzip")), set, nil)
 }
+
+// The script goes right after the page's charset declaration unless a
+// script that runs at once comes first, else before the first script that
+// runs at once, else before the first script, else right after <head>; a
+// <meta> policy, or no place before the head ends, means nowhere. Text in
+// attribute values, comments and raw-text elements is never a tag.
+func TestInsertionFindsItsPlaceInTheHead(t *testing.T) {
+	const tag = "<script>TAG</script>"
+	for in, want := range map[string]string{
+		`<!DOCTYPE html><html><head><meta charset="utf-8"><title>x</title><script type="module" src="/@vite/client"></script></head><body></body></html>`: `<!DOCTYPE html><html><head><meta charset="utf-8">` + tag + `<title>x</title><script type="module" src="/@vite/client"></script></head><body></body></html>`,
+		// Vite prepends its client to the head, before the template's charset.
+		`<head><script type="module" src="/@vite/client"></script><meta charset="UTF-8" /><title>x</title>`:    `<head><script type="module" src="/@vite/client"></script><meta charset="UTF-8" />` + tag + `<title>x</title>`,
+		`<head><script src="/a.js" defer></script><meta charset=utf-8><script type=module>m()</script></head>`: `<head><script src="/a.js" defer></script><meta charset=utf-8>` + tag + `<script type=module>m()</script></head>`,
+		`<head><script>early()</script><meta charset="utf-8"></head>`:                                          `<head>` + tag + `<script>early()</script><meta charset="utf-8"></head>`,
+		`<head><script type="module" async src="/x.js"></script><meta charset="utf-8"></head>`:                 `<head>` + tag + `<script type="module" async src="/x.js"></script><meta charset="utf-8"></head>`,
+		`<head><script defer>inline()</script><meta charset="utf-8"></head>`:                                   `<head>` + tag + `<script defer>inline()</script><meta charset="utf-8"></head>`,
+		`<head><script type="importmap">{}</script><meta charset="utf-8"></head>`:                              `<head><script type="importmap">{}</script><meta charset="utf-8">` + tag + `</head>`,
+		`<head><meta http-equiv="Content-Type" content="text/html; charset=windows-1252"><script>w()</script>`: `<head><meta http-equiv="Content-Type" content="text/html; charset=windows-1252">` + tag + `<script>w()</script>`,
+		`<head><script type="module" src="/m.js"></script><title>t</title></head>`:                             `<head>` + tag + `<script type="module" src="/m.js"></script><title>t</title></head>`,
+		// Text that looks like a tag but is not one.
+		`<head><meta name="x" content="a <script> b > c"><script>f()</script>`:                                     `<head><meta name="x" content="a <script> b > c">` + tag + `<script>f()</script>`,
+		`<head><title>a <script> b</title><script>g()</script>`:                                                    `<head><title>a <script> b</title>` + tag + `<script>g()</script>`,
+		`<head><style>p::after{content:"<script>"}</style><script>h()</script>`:                                    `<head><style>p::after{content:"<script>"}</style>` + tag + `<script>h()</script>`,
+		`<head><title>a <meta http-equiv="Content-Security-Policy"></title><script>i()</script>`:                   `<head><title>a <meta http-equiv="Content-Security-Policy"></title>` + tag + `<script>i()</script>`,
+		`<head><template><script>t()</script></template><script>k()</script>`:                                      `<head><template><script>t()</script></template>` + tag + `<script>k()</script>`,
+		`<head><meta name='q' content='<meta charset="x">'><script>j()</script>`:                                   `<head><meta name='q' content='<meta charset="x">'>` + tag + `<script>j()</script>`,
+		`<html><head><title>x</title></head><body><script src="/a.js"></script></body></html>`:                     `<html><head>` + tag + `<title>x</title></head><body><script src="/a.js"></script></body></html>`,
+		`<HTML><HEAD lang="en"><SCRIPT>a()</SCRIPT></HEAD>`:                                                        `<HTML><HEAD lang="en">` + tag + `<SCRIPT>a()</SCRIPT></HEAD>`,
+		`<head><!-- <script src="/old.js"></script> --><script>b()</script>`:                                       `<head><!-- <script src="/old.js"></script> -->` + tag + `<script>b()</script>`,
+		`<header><scripts></scripts><script2>`:                                                                     `<header><scripts></scripts><script2>`,
+		`<title>no head</title><script>c()</script>`:                                                               `<title>no head</title>` + tag + `<script>c()</script>`,
+		`<p>neither a head nor a script</p>`:                                                                       `<p>neither a head nor a script</p>`,
+		`<head><meta http-equiv="Content-Security-Policy" content="script-src 'self'"><script>d()</script></head>`: `<head><meta http-equiv="Content-Security-Policy" content="script-src 'self'"><script>d()</script></head>`,
+		`<head><script>e()</script><META HTTP-EQUIV=content-security-policy CONTENT="default-src *"></head>`:       `<head><script>e()</script><META HTTP-EQUIV=content-security-policy CONTENT="default-src *"></head>`,
+		`<head></head><body><meta http-equiv="Content-Security-Policy" content="x"><script>f()</script>`:           `<head>` + tag + `</head><body><meta http-equiv="Content-Security-Policy" content="x"><script>f()</script>`,
+		`<head><script`:                      `<head>` + tag + `<script`,
+		`<head><title>never closed <script>`: `<head>` + tag + `<title>never closed <script>`,
+		``:                                   ``,
+		`<`:                                  `<`,
+		`<head`:                              `<head`,
+	} {
+		for size := 1; size <= max(1, len(in)); size++ {
+			var chunks [][]byte
+			for rest := []byte(in); len(rest) > 0; {
+				n := min(size, len(rest))
+				chunks, rest = append(chunks, rest[:n]), rest[n:]
+			}
+			got, err := io.ReadAll(newInserter(io.NopCloser(&chunkReader{chunks: chunks}), []byte(tag)))
+			if err != nil || string(got) != want {
+				t.Fatalf("%q in pieces of %d:\n got %q\nwant %q", in, size, got, want)
+			}
+		}
+	}
+}
+
+// The inserter holds back at most its look-ahead: past that it decides with
+// what it has seen, and once it has decided the rest of the body streams.
+func TestInsertionHoldsBackABoundedAmount(t *testing.T) {
+	const tag = "<script>TAG</script>"
+	long := "<html><head>" + strings.Repeat("<!-- a long head -->", insertLookahead/10) + "<script>late()</script></head>"
+	got, _ := io.ReadAll(newInserter(io.NopCloser(strings.NewReader(long)), []byte(tag)))
+	if string(got) != "<html><head>"+tag+long[len("<html><head>"):] {
+		t.Fatalf("past the look-ahead the script goes after <head>: %q", got[:100])
+	}
+	// A page streamed in parts: the head is sent as soon as it ends, before
+	// the rest of the body exists.
+	pr, pw := io.Pipe()
+	r := newInserter(pr, []byte(tag))
+	go func() { _, _ = io.WriteString(pw, "<html><head><script>a()</script></head><body>") }()
+	buf := make([]byte, 1024)
+	var head []byte
+	for !bytes.Contains(head, []byte("<body>")) {
+		n, err := r.Read(buf)
+		if err != nil {
+			t.Fatal(err)
+		}
+		head = append(head, buf[:n]...)
+	}
+	if string(head) != "<html><head>"+tag+"<script>a()</script></head><body>" {
+		t.Fatalf("head %q", head)
+	}
+	go func() { _, _ = io.WriteString(pw, "<p>later</p>"); _ = pw.Close() }()
+	rest, _ := io.ReadAll(r)
+	if string(rest) != "<p>later</p>" {
+		t.Fatalf("rest %q", rest)
+	}
+	// A read error is passed on after what came before it.
+	r = newInserter(io.NopCloser(io.MultiReader(strings.NewReader("<head><title>"), &failingReader{})), []byte(tag))
+	got, err := io.ReadAll(r)
+	if string(got) != "<head>"+tag+"<title>" || !errors.Is(err, io.ErrUnexpectedEOF) {
+		t.Fatalf("error: %q %v", got, err)
+	}
+}
+
+// The charset a page declares is read, so that it can be stated in the
+// response when the script moves the declaration past the first 1024 bytes.
+func TestInsertionReadsTheDeclaredCharset(t *testing.T) {
+	for in, want := range map[string]string{
+		`<head><meta charset="UTF-8"></head>`:                                                  "UTF-8",
+		`<head><meta charset=iso-8859-1></head>`:                                               "iso-8859-1",
+		`<head><meta http-equiv="content-type" content="text/html; charset=Shift_JIS"></head>`: "Shift_JIS",
+		`<head><meta http-equiv="refresh" content="5"></head>`:                                 "",
+		`<head><title><meta charset="x"></title></head>`:                                       "",
+		`<head><meta charset="a"><meta charset="b"></head>`:                                    "a",
+	} {
+		r := newInserter(io.NopCloser(strings.NewReader(in)), nil)
+		r.prime()
+		if r.scan.declared != want {
+			t.Errorf("%q: %q", in, r.scan.declared)
+		}
+	}
+}
+
+// Random tag soup, cut into random pieces down to single bytes: the place
+// found does not depend on how the body arrives, and the body is passed on
+// unchanged but for the script.
+func TestInsertionIsChunkingInvariant(t *testing.T) {
+	const tag = "<script>TAG</script>"
+	fragments := []string{
+		"<head>", "</head>", "<body>", "<script>", "<script type=module src=/m.js>", "<script defer src=a.js>", "</script>", "<meta charset=utf-8>",
+		`<meta http-equiv="Content-Security-Policy" content="x">`, `<meta content="<script>">`, "<title>", "</title>", "<style>", "</style>",
+		"<!--", "-->", "<!doctype html>", "<", ">", "/", `"`, "'", "=", " ", "\n", "text", "<scriptx>", "</scrip", "<headx>", "<textarea>", "</textarea>", "<template>", "</template>",
+	}
+	rng := rand.New(rand.NewSource(3))
+	for round := 0; round < 2000; round++ {
+		var in []byte
+		for range 1 + rng.Intn(30) {
+			in = append(in, fragments[rng.Intn(len(fragments))]...)
+		}
+		whole, err := io.ReadAll(newInserter(io.NopCloser(bytes.NewReader(in)), []byte(tag)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := bytes.Replace(whole, []byte(tag), nil, 1); !bytes.Equal(got, in) {
+			t.Fatalf("round %d changed the body:\n  in %q\n got %q", round, in, whole)
+		}
+		var chunks [][]byte
+		for rest := in; len(rest) > 0; {
+			n := 1 + rng.Intn(min(len(rest), 7))
+			chunks, rest = append(chunks, rest[:n]), rest[n:]
+		}
+		pieces, err := io.ReadAll(newInserter(io.NopCloser(&chunkReader{chunks: chunks}), []byte(tag)))
+		if err != nil || !bytes.Equal(pieces, whole) {
+			t.Fatalf("round %d in pieces:\n  in %q\n got %q\nwant %q", round, in, pieces, whole)
+		}
+	}
+}
