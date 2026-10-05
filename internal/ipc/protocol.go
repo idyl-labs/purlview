@@ -286,7 +286,8 @@ type ShareCredential struct {
 
 // ShareStartParams asks the daemon to create and serve a share. Target is the
 // first target; Targets is the whole list when there are several, the first
-// included. NoRewrite leaves the apps' addresses in response bodies alone.
+// included. NoRewrite leaves the apps' addresses in response bodies alone and
+// adds no catch-up script.
 type ShareStartParams struct {
 	// Attempt is the CLI's idempotency key; a repeated start with the same
 	// attempt returns the same share.

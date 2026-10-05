@@ -43,8 +43,8 @@ type Spec struct {
 	// Recipients restricts access to these verified addresses (normalised by
 	// ParseRecipients); empty means anyone with the link.
 	Recipients []string
-	// NoRewrite leaves the apps' addresses in response bodies unchanged
-	// (--no-rewrite); rewriting is otherwise on.
+	// NoRewrite leaves the apps' addresses in response bodies unchanged and
+	// adds no catch-up script (--no-rewrite); both are otherwise on.
 	NoRewrite bool
 }
 

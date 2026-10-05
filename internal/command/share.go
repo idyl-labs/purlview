@@ -60,7 +60,15 @@ reachable.
 Name several apps, separated by spaces (5173 8000), when one calls another:
 the link opens the first app's page, and the others are reachable from it
 as they are on your machine. Their addresses in what your apps send are
-translated for the visitor; --no-rewrite leaves the bodies alone.
+translated for the visitor, in headers and in response bodies.
+
+Visitors see your changes through your app's own hot reload. For apps on
+Vite's dev server (Vite, Astro, SvelteKit, Nuxt, React Router), each page
+also runs a small Purlview script that reloads it once if it missed a change
+while it was loading.
+
+--no-rewrite leaves response bodies as your apps wrote them: no address
+translation in bodies and no script. Headers are still translated.
 
 The link is the only thing printed on standard output; everything else goes
 to standard error. Anyone with the link can open your app, or only the people
@@ -96,7 +104,7 @@ otherwise run 'purlview login' first.`,
 	cmd.Flags().BoolVar(&background, "background", false, "Keep sharing after this command returns.")
 	cmd.Flags().StringVar(&ttl, "ttl", "", "How long the share lasts, a `duration` up to 1h (default 1h); for example 15m.")
 	cmd.Flags().StringArrayVar(&to, "to", nil, "Let in only this `email` address; repeat for several. Each address is sent an invite.")
-	cmd.Flags().BoolVar(&noRewrite, "no-rewrite", false, "Leave the app's own addresses in response bodies unchanged.")
+	cmd.Flags().BoolVar(&noRewrite, "no-rewrite", false, "Leave response bodies as the apps wrote them: no address translation in bodies and no reload script.")
 	return cmd
 }
 
