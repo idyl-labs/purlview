@@ -114,11 +114,34 @@ type trackedConn struct {
 // Close ends the stream and its active requests.
 func (c *trackedConn) Close() error { return c.listener.Close() }
 
-// serveStream serves HTTP on one end-to-end stream until it ends or ctx is
-// done.
+// How long a stream may take to send a request's header, and how long it
+// may sit idle before its first request or between requests. A peer that
+// holds a stream open for later requests must close it before
+// streamIdleTimeout, so that it never sends a request just as the daemon
+// closes the stream.
+const (
+	streamHeaderTimeout = 5 * time.Second
+	streamIdleTimeout   = 120 * time.Second
+)
+
+// streamServer is the HTTP server for one end-to-end stream.
+func streamServer(h http.Handler) *http.Server {
+	return &http.Server{Handler: h, ReadHeaderTimeout: streamHeaderTimeout, IdleTimeout: streamIdleTimeout, MaxHeaderBytes: 32 << 10, ErrorLog: log.New(io.Discard, "", 0)}
+}
+
+// serveStream serves HTTP on one end-to-end stream until it ends, it is idle
+// for streamIdleTimeout or ctx is done. c must honour read deadlines, as
+// withDeadlines provides. Closing the stream during a request cancels the
+// request's context.
 func serveStream(ctx context.Context, c net.Conn, h http.Handler) {
-	l := &oneListener{c: c, done: make(chan struct{})}
-	server := &http.Server{Handler: h, ReadHeaderTimeout: 5 * time.Second, MaxHeaderBytes: 32 << 10, ErrorLog: log.New(io.Discard, "", 0)}
+	serveStreamOn(ctx, c, streamServer(h))
+}
+
+// serveStreamOn serves c with server, holding c to server's IdleTimeout
+// before its first request as well as between requests.
+func serveStreamOn(ctx context.Context, c net.Conn, server *http.Server) {
+	rc := &replayConn{Conn: c}
+	l := &oneListener{c: rc, done: make(chan struct{})}
 	go func() {
 		select {
 		case <-ctx.Done():
@@ -126,6 +149,53 @@ func serveStream(ctx context.Context, c net.Conn, h http.Handler) {
 		case <-l.done:
 		}
 	}()
-	_ = server.Serve(l)
+	// The server would start the header timeout as soon as it is handed the
+	// stream, which closes a stream opened ahead of its first request.
+	// Waiting for that request's first byte holds the stream to the idle
+	// timeout instead, as between requests.
+	if rc.awaitFirstByte(server.IdleTimeout) {
+		_ = server.Serve(l)
+	}
 	_ = l.Close()
+}
+
+// replayConn returns the bytes awaitFirstByte read ahead of the server before
+// reading on. Only the reading goroutine touches pending; the server reads
+// from one goroutine at a time.
+type replayConn struct {
+	net.Conn
+	pending []byte
+}
+
+// awaitFirstByte waits at most d for the connection's first byte and keeps
+// it for Read. It reports false when none came: the wait timed out, the peer
+// closed the stream or the stream was closed locally. If a byte arrives, it
+// is served; if the wait ends first, the stream is closed without reading a
+// request. A zero d waits without a limit, as a zero IdleTimeout does in
+// net/http when there is no ReadTimeout.
+func (c *replayConn) awaitFirstByte(d time.Duration) bool {
+	if d > 0 {
+		_ = c.SetReadDeadline(time.Now().Add(d))
+	}
+	var b [1]byte
+	var n int
+	var err error
+	for n == 0 && err == nil {
+		n, err = c.Conn.Read(b[:])
+	}
+	_ = c.SetReadDeadline(time.Time{})
+	if n == 0 {
+		return false
+	}
+	c.pending = b[:n]
+	return true
+}
+
+func (c *replayConn) Read(b []byte) (int, error) {
+	if len(c.pending) > 0 {
+		n := copy(b, c.pending)
+		c.pending = c.pending[n:]
+		return n, nil
+	}
+	return c.Conn.Read(b)
 }
