@@ -37,9 +37,11 @@ type proxy struct {
 // newProxy builds the share's proxy. public is the share's origin; without
 // one nothing is translated or rewritten, as without targets nothing is
 // mounted. Each target's watch observes its requests for the share's visitor
-// and app events and answers for an app that does not. ModifyResponse must
-// never return an error: the proxy would hand the request to the error
-// handler, which marks the app unresponsive although it answered.
+// and app events and answers for an app that does not. With rewriting, each
+// target also has a catch-up observer (observer.go), which runs only while
+// visitors are present and ends with stop. ModifyResponse must never return
+// an error: the proxy would hand the request to the error handler, which
+// marks the app unresponsive although it answered.
 func newProxy(public origin, targets []*target, rewrite bool, logger *log.Logger) *proxy {
 	set := newNeedleSet(public, targets)
 	if !rewrite {
@@ -47,21 +49,38 @@ func newProxy(public origin, targets []*target, rewrite bool, logger *log.Logger
 	}
 	for _, t := range targets {
 		t.rp = newTargetProxy(public, t, targets, set, rewrite, logger)
+		if rewrite {
+			t.catchup = newObserver(t.url, t.rp.Transport, t.name, logger)
+		}
 	}
 	return &proxy{targets: targets}
 }
 
+// ServeHTTP selects the target by the mount alone. A page's catch-up check
+// is answered here for that target and never reaches the app.
 func (p *proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	n, _, ok := cutMount(r.URL.EscapedPath())
-	if !ok {
-		p.targets[0].rp.ServeHTTP(w, r)
+	t := p.targets[0]
+	if n, _, ok := cutMount(r.URL.EscapedPath()); ok {
+		if n > len(p.targets) {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		t = p.targets[n-1]
+	}
+	if r.Header.Get(revisionHeader) != "" {
+		answerRevision(w, r, t.catchup)
 		return
 	}
-	if n > len(p.targets) {
-		w.WriteHeader(http.StatusNotFound)
-		return
+	t.rp.ServeHTTP(w, r)
+}
+
+// stop ends the targets' catch-up observers and waits for them.
+func (p *proxy) stop() {
+	for _, t := range p.targets {
+		if t.catchup != nil {
+			t.catchup.stop()
+		}
 	}
-	p.targets[n-1].rp.ServeHTTP(w, r)
 }
 
 // closeIdle releases every target's idle connections.
@@ -111,6 +130,9 @@ func newTargetProxy(public origin, t *target, targets []*target, set *needleSet,
 			// one encoding every development server honours.
 			pr.Out.Header.Set("Accept-Encoding", "identity")
 		}
+		if t.catchup != nil {
+			catchupRequest(pr, t)
+		}
 	}
 	rp.Transport = &http.Transport{Proxy: nil, MaxIdleConnsPerHost: 32, IdleConnTimeout: appIdleConnTimeout, TLSHandshakeTimeout: 3 * time.Second, ResponseHeaderTimeout: 10 * time.Second}
 	rp.ModifyResponse = func(r *http.Response) error {
@@ -124,9 +146,68 @@ func newTargetProxy(public origin, t *target, targets []*target, set *needleSet,
 			}
 		}
 		rewriteResponse(r, set, logger)
+		if t.catchup != nil {
+			catchupResponse(r, t)
+		}
 		return nil
 	}
 	return rp
+}
+
+// catchupRequest prepares a request for the catch-up as it is forwarded,
+// once its address is the target's. A navigation starts the observer and is
+// stamped with the target's state now, before the app renders the page. A
+// visitor HMR upgrade starts the observer too, and offers no extension, so
+// the app's frames reach the proxy uncompressed and an error can be
+// replayed between them.
+func catchupRequest(pr *httputil.ProxyRequest, t *target) {
+	if navigation(pr.In) {
+		t.catchup.navigated()
+		if s := t.catchup.stamp(pr.In.Context()); s.script || s.pending {
+			if wantsHTML(pr.In) {
+				stripConditionals(pr.Out.Header)
+			}
+			pr.Out = withValue(pr.Out, stampKey{}, s)
+		}
+		return
+	}
+	if fw := hmrUpgrade(pr.In); fw != nil {
+		pr.Out.Header.Del("Sec-Websocket-Extensions")
+		pr.Out = withValue(pr.Out, upgradeKey{}, hmrSocket{fw: fw, uri: pr.Out.URL.RequestURI()})
+	}
+}
+
+// catchupResponse stamps a navigation's HTML page, or follows a visitor HMR
+// socket the app accepted. A page stamped before the target's framework was
+// known gets an unknown stamp if the framework is known by now, or if the
+// page loads the framework's client.
+func catchupResponse(r *http.Response, t *target) {
+	if r.Request == nil {
+		return
+	}
+	ctx := r.Request.Context()
+	if s, ok := ctx.Value(stampKey{}).(stamp); ok && insertable(r) {
+		insertScript(r, func(head []byte) []byte {
+			if s.pending {
+				fw := t.catchup.supportedFramework()
+				if fw == nil && t.catchup.undecided() {
+					fw = loadsClient(head)
+				}
+				if fw == nil {
+					return nil
+				}
+				s = stamp{script: true, fw: fw}
+			}
+			return scriptTag(s, t.mount)
+		})
+		return
+	}
+	if u, ok := ctx.Value(upgradeKey{}).(hmrSocket); ok && r.StatusCode == http.StatusSwitchingProtocols && strings.EqualFold(r.Header.Get("Upgrade"), "websocket") {
+		if app, ok := r.Body.(io.ReadWriteCloser); ok {
+			t.catchup.learn(u.fw, u.uri)
+			r.Body = newVisitorSocket(app, t.catchup)
+		}
+	}
 }
 
 // hostOnlyCookie keeps an application cookie on the share's own host: it drops

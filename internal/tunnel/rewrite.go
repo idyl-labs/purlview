@@ -15,6 +15,7 @@
 package tunnel
 
 import (
+	"bytes"
 	"io"
 	"log"
 	"mime"
@@ -373,4 +374,356 @@ func rewriteResponse(res *http.Response, set *needleSet, logger *log.Logger) {
 	res.ContentLength = -1
 	res.Header.Del("Accept-Ranges")
 	weakenETag(res.Header)
+}
+
+// Script insertion. A stamped page gets the catch-up script (catchup.go) in
+// its head, at the first place where it runs before any of the page's own
+// scripts that could run before parsing ends, so before the framework's
+// client opens its socket. Deferred scripts (modules, and classic scripts
+// with src and defer) run only after parsing, so an inline script anywhere
+// in the head runs first.
+//
+// The place is chosen so that the page reads as it did:
+//
+//   - right after the page's <meta charset> (or http-equiv Content-Type), if
+//     no script that runs at once comes before it, so the declaration stays
+//     where the browser looks for it, in the first 1024 bytes;
+//   - otherwise before the first script that runs at once;
+//   - otherwise before the first script;
+//   - otherwise right after <head>.
+//
+// The inserter holds back the start of the body until it can tell: up to
+// </head> or <body>, at most insertLookahead bytes, or the end of the body.
+// What it held back is then sent at once and the rest streams through. A
+// <meta> Content-Security-Policy there means nothing is inserted, whatever it
+// says; so does a page with no head and no script in that window. The scan
+// reads each tag to its end, honouring quoted attribute values, and skips
+// comments and the contents of raw-text elements such as <title> and
+// <style>, so text that looks like a tag is never taken for one, and of
+// <template>, whose scripts never run.
+
+// insertLookahead bounds what the inserter holds back.
+const insertLookahead = 64 << 10
+
+type inserter struct {
+	src     io.ReadCloser
+	tag     []byte
+	scan    insertScan
+	buf     []byte
+	out     []byte
+	primed  bool
+	decided bool
+	err     error
+}
+
+func newInserter(src io.ReadCloser, tag []byte) *inserter {
+	return &inserter{src: src, tag: tag, scan: newInsertScan()}
+}
+
+// prime reads the start of the body until the place is known. It may be
+// called before Read, to look at the head first; Read primes otherwise.
+func (r *inserter) prime() {
+	for !r.primed {
+		atEnd := len(r.buf) >= insertLookahead
+		if !atEnd {
+			chunk := make([]byte, min(32<<10, insertLookahead-len(r.buf)))
+			n, err := r.src.Read(chunk)
+			r.buf = append(r.buf, chunk[:n]...)
+			if err != nil {
+				r.err = err
+				atEnd = true
+			}
+		}
+		r.primed = r.scan.position(r.buf, atEnd || len(r.buf) >= insertLookahead)
+	}
+}
+
+// head is what prime held back.
+func (r *inserter) head() []byte { return r.buf }
+
+// at is where the script goes, or -1 for nowhere.
+func (r *inserter) at() int { return r.scan.at }
+
+func (r *inserter) Read(p []byte) (int, error) {
+	if !r.decided {
+		r.prime()
+		r.decided = true
+		r.out = r.buf
+		if at := r.scan.at; at >= 0 && r.tag != nil {
+			r.out = make([]byte, 0, len(r.buf)+len(r.tag))
+			r.out = append(append(append(r.out, r.buf[:at]...), r.tag...), r.buf[at:]...)
+		}
+		r.buf = nil
+	}
+	if len(r.out) > 0 {
+		n := copy(p, r.out)
+		r.out = r.out[n:]
+		return n, nil
+	}
+	if r.err != nil {
+		return 0, r.err
+	}
+	return r.src.Read(p)
+}
+
+func (r *inserter) Close() error { return r.src.Close() }
+
+// insertScan finds the insertion point in a growing buffer. It resumes where
+// it stopped, so a body arriving in small pieces is scanned once.
+type insertScan struct {
+	i       int    // the next byte to look at
+	raw     string // inside this skipped element, until its end tag
+	script  int    // the first script tag
+	early   int    // the first script tag that runs at once
+	charset int    // just after the first tag that declares the charset
+	head    int    // just after the <head> tag
+	at      int    // the decision: where the script goes, -1 for nowhere
+	// declared is the charset the page declares in a <meta>, if any.
+	declared string
+}
+
+func newInsertScan() insertScan {
+	return insertScan{script: -1, early: -1, charset: -1, head: -1, at: -1}
+}
+
+// skipped are the elements whose contents the scan passes over to their end
+// tag: those whose contents are text, and <template>, whose contents are
+// never run, so a script placed before one inside it would not run either.
+// A <template> nested in another ends the skip early, which can only place
+// the script later, in the outer template's contents, or nowhere.
+var skipped = map[string]bool{"script": true, "style": true, "title": true, "textarea": true, "xmp": true, "iframe": true, "noembed": true, "noframes": true, "noscript": true, "template": true}
+
+// position scans b and reports whether the place is decided; s.at holds it
+// then. atEnd says b will not grow.
+func (s *insertScan) position(b []byte, atEnd bool) bool {
+	for {
+		if s.raw != "" {
+			k := indexEndTag(b[s.i:], s.raw)
+			if k < 0 {
+				// Keep what could be the start of the end tag.
+				s.i = max(s.i, len(b)-len(s.raw)-2)
+				break
+			}
+			s.i += k
+			s.raw = ""
+		}
+		j := bytes.IndexByte(b[s.i:], '<')
+		if j < 0 {
+			s.i = len(b)
+			break
+		}
+		s.i += j
+		rest := b[s.i:]
+		if len(rest) < 4 && bytes.HasPrefix([]byte("<!--"), rest) {
+			break // perhaps a comment: wait for more
+		}
+		if bytes.HasPrefix(rest, []byte("<!--")) {
+			k := bytes.Index(rest[4:], []byte("-->"))
+			if k < 0 {
+				break
+			}
+			s.i += 4 + k + 3
+			continue
+		}
+		name, closing, complete := tagName(rest)
+		if !complete {
+			break
+		}
+		if name == "" {
+			s.i++
+			continue
+		}
+		attrs, end, ok := tagAttributes(rest)
+		if !ok {
+			break
+		}
+		switch {
+		case closing && name == "head", !closing && (name == "body" || name == "plaintext"):
+			s.decide()
+			return true
+		case closing:
+		case name == "head":
+			if s.head < 0 {
+				s.head = s.i + end
+			}
+		case name == "meta":
+			if equivIs(attrs, "content-security-policy") {
+				return true // s.at stays -1
+			}
+			if cs := metaCharset(attrs); cs != "" && s.charset < 0 {
+				s.charset, s.declared = s.i+end, cs
+			}
+		case name == "script":
+			if s.script < 0 {
+				s.script = s.i
+			}
+			if s.early < 0 && runsAtOnce(attrs) {
+				s.early = s.i
+			}
+		}
+		if !closing && skipped[name] {
+			s.raw = name
+		}
+		s.i += end
+	}
+	if !atEnd {
+		return false
+	}
+	s.decide()
+	return true
+}
+
+func (s *insertScan) decide() {
+	switch {
+	case s.charset >= 0 && (s.early < 0 || s.early > s.charset):
+		s.at = s.charset
+	case s.early >= 0:
+		s.at = s.early
+	case s.script >= 0:
+		s.at = s.script
+	default:
+		s.at = s.head
+	}
+}
+
+// indexEndTag finds the end tag </name, followed by a delimiter, in b.
+func indexEndTag(b []byte, name string) int {
+	for i := 0; ; {
+		k := bytes.Index(b[i:], []byte("</"))
+		if k < 0 {
+			return -1
+		}
+		i += k
+		after := i + 2 + len(name)
+		if after >= len(b) {
+			return -1
+		}
+		if bytes.EqualFold(b[i+2:after], []byte(name)) && isTagDelimiter(b[after]) {
+			return i
+		}
+		i += 2
+	}
+}
+
+func isTagDelimiter(c byte) bool {
+	return c == ' ' || c == '\t' || c == '\n' || c == '\f' || c == '\r' || c == '/' || c == '>'
+}
+
+// tagName reads the name of the tag at the start of b, which begins with
+// '<': lower-cased, after a '/' for a closing tag. complete is false when b
+// ends before the name does. A '<' that begins no tag has the empty name.
+func tagName(b []byte) (name string, closing bool, complete bool) {
+	k := 1
+	if k < len(b) && b[k] == '/' {
+		closing = true
+		k++
+	}
+	start := k
+	for k < len(b) && (b[k] >= 'a' && b[k] <= 'z' || b[k] >= 'A' && b[k] <= 'Z' || k > start && isDigit(b[k])) {
+		k++
+	}
+	if k == len(b) {
+		return "", closing, false
+	}
+	if k > start && !isTagDelimiter(b[k]) {
+		return "", closing, true // not a tag the scan needs
+	}
+	return strings.ToLower(string(b[start:k])), closing, true
+}
+
+// tagAttributes reads a tag's attributes, as the HTML tokenizer does, up to
+// the '>' that ends it: names lower-cased, values unquoted, a value-less
+// attribute present with the empty value. end is the length of the tag; ok
+// is false when b ends first.
+func tagAttributes(b []byte) (attrs map[string]string, end int, ok bool) {
+	attrs = map[string]string{}
+	k := 1
+	for k < len(b) && b[k] != '>' && !isTagDelimiter(b[k]) || k == 1 && k < len(b) && b[k] == '/' {
+		k++
+	}
+	for {
+		for k < len(b) && (isTagDelimiter(b[k]) && b[k] != '>') {
+			k++
+		}
+		if k >= len(b) {
+			return nil, 0, false
+		}
+		if b[k] == '>' {
+			return attrs, k + 1, true
+		}
+		start := k
+		for k < len(b) && b[k] != '=' && b[k] != '>' && !isTagDelimiter(b[k]) || k == start && k < len(b) && b[k] == '=' {
+			k++
+		}
+		name := strings.ToLower(string(b[start:k]))
+		for k < len(b) && isTagDelimiter(b[k]) && b[k] != '/' && b[k] != '>' {
+			k++
+		}
+		if k >= len(b) {
+			return nil, 0, false
+		}
+		value := ""
+		if b[k] == '=' {
+			k++
+			for k < len(b) && isTagDelimiter(b[k]) && b[k] != '/' && b[k] != '>' {
+				k++
+			}
+			if k >= len(b) {
+				return nil, 0, false
+			}
+			if q := b[k]; q == '"' || q == '\'' {
+				e := bytes.IndexByte(b[k+1:], q)
+				if e < 0 {
+					return nil, 0, false
+				}
+				value = string(b[k+1 : k+1+e])
+				k += e + 2
+			} else {
+				v := k
+				for k < len(b) && b[k] != '>' && (!isTagDelimiter(b[k]) || b[k] == '/') {
+					k++
+				}
+				value = string(b[v:k])
+			}
+		}
+		if _, seen := attrs[name]; !seen && name != "" {
+			attrs[name] = value
+		}
+	}
+}
+
+func equivIs(attrs map[string]string, value string) bool {
+	v, ok := attrs["http-equiv"]
+	return ok && strings.EqualFold(strings.TrimSpace(v), value)
+}
+
+// metaCharset is the charset a <meta> declares, by its charset attribute or
+// as an http-equiv Content-Type, or "".
+func metaCharset(attrs map[string]string) string {
+	if cs, ok := attrs["charset"]; ok {
+		return strings.TrimSpace(cs)
+	}
+	if equivIs(attrs, "content-type") {
+		if _, params, err := mime.ParseMediaType(attrs["content"]); err == nil {
+			return params["charset"]
+		}
+	}
+	return ""
+}
+
+// runsAtOnce reports a script element that may run before parsing reaches
+// the next element: anything but a module without async, a classic script
+// with src and defer without async, or a data block of another type.
+func runsAtOnce(attrs map[string]string) bool {
+	_, async := attrs["async"]
+	_, src := attrs["src"]
+	_, deferred := attrs["defer"]
+	switch t := strings.ToLower(strings.TrimSpace(attrs["type"])); {
+	case t == "module":
+		return async
+	case t == "" || t == "text/javascript" || t == "application/javascript" || t == "text/ecmascript" || t == "application/ecmascript" || t == "text/jscript" || t == "text/livescript" || strings.HasPrefix(t, "text/javascript"):
+		return async || !src || !deferred
+	default:
+		return false // importmap, JSON and other data blocks run no code
+	}
 }
