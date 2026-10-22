@@ -391,7 +391,7 @@ func init() {
 		},
 		Scenario{
 			Name:  "options/no-rewrite",
-			Title: "--no-rewrite leaves the apps' addresses in what they send unchanged; everything else is the same share.",
+			Title: "--no-rewrite leaves response bodies as the apps wrote them, with no address translation in bodies and no reload script; everything else is the same share.",
 			Setup: "signed in.",
 			Run: func(c *Check, w *World) {
 				w.SignIn()

@@ -165,6 +165,7 @@ func (c *Client) ConnectServing(ctx context.Context, _ api.InstallationCredentia
 	go func() {
 		defer func() { _ = out.Close() }()
 		defer proxy.closeIdle()
+		defer proxy.stop()
 		forwardEvents(life, out.events, ended, proxy.watches()...)
 	}()
 	go func() {

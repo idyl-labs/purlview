@@ -733,7 +733,7 @@ stderr| Run 'purlview share --help' for usage.
 
 ### options/no-rewrite
 
---no-rewrite leaves the apps' addresses in what they send unchanged; everything else is the same share.
+--no-rewrite leaves response bodies as the apps wrote them, with no address translation in bodies and no reload script; everything else is the same share.
 
 Fixtures: signed in.
 

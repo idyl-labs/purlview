@@ -45,6 +45,9 @@ edge forwards your visitors' requests to the app on your machine. Nothing
 listens on a port of yours, and a share never outlives its expiry, at most one
 hour. Each share has its own key; its private half never leaves the daemon.
 
+- [docs/sharing.md](docs/sharing.md): what visitors receive through a
+  share: address translation, the small Purlview script that keeps pages up
+  to date with hot reload, and `--no-rewrite`.
 - [docs/daemon.md](docs/daemon.md): the daemon's lifecycle, its private
   control protocol, its files, and the update check.
 - [docs/updates.md](docs/updates.md): how Purlview tells you about a new
