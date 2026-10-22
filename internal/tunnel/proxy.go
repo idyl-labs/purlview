@@ -59,6 +59,13 @@ func newProxy(public origin, targets []*target, rewrite bool, logger *log.Logger
 // ServeHTTP selects the target by the mount alone. A page's catch-up check
 // is answered here for that target and never reaches the app.
 func (p *proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// A share forwards requests to its apps and tunnels nothing. The reverse
+	// proxy refuses CONNECT itself (since Go 1.27.2) through the error
+	// handler, which would mark the app unresponsive, so it is refused here.
+	if r.Method == http.MethodConnect {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
 	t := p.targets[0]
 	if n, _, ok := cutMount(r.URL.EscapedPath()); ok {
 		if n > len(p.targets) {
