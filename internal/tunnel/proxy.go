@@ -52,6 +52,13 @@ func newProxy(public origin, targets []*target, rewrite bool, logger *log.Logger
 }
 
 func (p *proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// A share forwards requests to its apps and tunnels nothing. The reverse
+	// proxy refuses CONNECT itself (since Go 1.27.2) through the error
+	// handler, which would mark the app unresponsive, so it is refused here.
+	if r.Method == http.MethodConnect {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
 	n, _, ok := cutMount(r.URL.EscapedPath())
 	if !ok {
 		p.targets[0].rp.ServeHTTP(w, r)

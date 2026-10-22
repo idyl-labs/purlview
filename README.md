@@ -71,7 +71,7 @@ hour. Each share has its own key; its private half never leaves the daemon.
 
 ## Build from source
 
-You need Go 1.27.1 or later (with `GOTOOLCHAIN=auto`, any Go 1.21 or later
+You need Go 1.27.3 or later (with `GOTOOLCHAIN=auto`, any Go 1.21 or later
 fetches it) and Git.
 
 ```sh
