@@ -338,7 +338,6 @@ func TestProxyDialsOnlyListedTargets(t *testing.T) {
 	for name, request := range map[string]string{
 		"absolute form":  "GET http://evil.example:9999/echo HTTP/1.1\r\nHost: k7m2p4qx.purlview.invalid\r\n\r\n",
 		"foreign Host":   "GET /echo HTTP/1.1\r\nHost: localhost:9999\r\n\r\n",
-		"CONNECT":        "CONNECT evil.example:9999 HTTP/1.1\r\nHost: evil.example:9999\r\n\r\n",
 		"mounted Host":   "GET /_purlview/t/2/echo HTTP/1.1\r\nHost: localhost:9999\r\n\r\n",
 		"encoded prefix": "GET /%5Fpurlview/t/2/echo HTTP/1.1\r\nHost: k7m2p4qx.purlview.invalid\r\n\r\n",
 	} {
@@ -348,9 +347,19 @@ func TestProxyDialsOnlyListedTargets(t *testing.T) {
 		if name == "mounted Host" {
 			wantHost, wantApp = apps[1].Listener.Addr().String(), "api"
 		}
-		if seenBy.host != wantHost || seenBy.app != wantApp || (name != "CONNECT" && !strings.HasPrefix(got, "200 "+wantApp+" ")) {
+		if seenBy.host != wantHost || seenBy.app != wantApp || !strings.HasPrefix(got, "200 "+wantApp+" ") {
 			t.Errorf("%s: %q reached %+v", name, got, seenBy)
 		}
+	}
+	// CONNECT reaches no app at all. The apps record a request before they
+	// answer it, so by the time the front has answered nothing may be seen.
+	if got := raw("CONNECT evil.example:9999 HTTP/1.1\r\nHost: evil.example:9999\r\n\r\n"); got != "405 " {
+		t.Errorf("CONNECT: %q", got)
+	}
+	select {
+	case seenBy := <-seen:
+		t.Errorf("CONNECT reached %+v", seenBy)
+	default:
 	}
 	// A WebSocket to the further target goes through its mount with its own
 	// origin, and its upgraded bytes are never rewritten.

@@ -22,7 +22,7 @@ merged.
 
 ## Building
 
-You need Go 1.27.1 or later (with `GOTOOLCHAIN=auto`, Go 1.21 or later
+You need Go 1.27.3 or later (with `GOTOOLCHAIN=auto`, Go 1.21 or later
 fetches it) and Git. Every dependency is a public Go module.
 
 ```sh
@@ -36,7 +36,7 @@ go build -trimpath -o purlview ./cmd/purlview
 go vet ./...
 go test -race ./...
 go mod tidy -diff
-go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.13.2 run
+go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0 run
 shellcheck -s sh install/install.sh && shellcheck -s bash release/*.sh
 go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
 ```
